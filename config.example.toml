@@ -1,0 +1,32 @@
+# Copy to config.toml (same folder) to override defaults. Every key is optional.
+# Relative paths resolve from the project folder. Unknown keys are an error.
+
+[screenshot]
+max_long_edge = 1568     # longer side of images sent to the model (4K screens get downscaled)
+format = "png"           # "png" (crisp text) or "jpeg" (smaller)
+jpeg_quality = 80
+draw_cursor = true       # GDI capture omits the real cursor; draw a crosshair where it is
+
+[safety]
+failsafe_corner = true   # input tools refuse while the mouse sits in the top-left corner
+pause_file = "PAUSED"    # while this file exists, input tools refuse (scripts/pause.ps1)
+action_delay_ms = 80     # settle time after each input action
+max_type_chars = 500     # paced Unicode input; use clipboard paste for larger text
+max_wait_seconds = 30
+
+[launch]
+enabled = true
+allowed = []             # e.g. ["notepad.exe", "calc.exe"]; empty = any program, file or URL
+
+[audit]
+enabled = true
+path = "logs/audit.jsonl"
+log_typed_text = false   # false: typed/clipboard text is logged as length + sha256 prefix only
+
+[http]
+host = "127.0.0.1"       # loopback only; non-loopback addresses are refused
+port = 8765
+token_env = "REACH_MCP_TOKEN"
+
+[tools]
+disabled = []            # tool names to hide entirely, e.g. ["reach_launch_application", "reach_set_clipboard"]

@@ -1,0 +1,45 @@
+# Local credentials, deployment identity, and audit evidence
+.env
+.env.*
+!.env.example
+**/secrets/
+.state/
+local-deployment/
+logs/
+backups/
+PAUSED
+config.toml
+*.log
+*.log.*
+*.key
+*.pem
+*.pfx
+*.p12
+# Python environments and generated output
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.whl
+*.zip
+*.bak
+*.backup
+*.orig
+*.tmp
+# Local deployment helpers; not part of the supported distribution
+scripts/run-unelevated.py
+scripts/verify-vm-*.ps1
+scripts/install-chatgpt-plugin.ps1
+web/store-client-secret.ps1
+# Editor and OS state
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reach MCP · Approvals</title>
+<style nonce="CSP_NONCE">
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#151719;color:#f1f3f4}body{margin:0;padding:32px 20px}main{max-width:800px;margin:auto}h1{font-size:28px;margin-bottom:6px}p{color:#adb4bf;line-height:1.55}.card{background:#202428;border:1px solid #383e46;border-radius:18px;padding:24px;margin:24px 0}.modes{display:grid;gap:12px}button{font:inherit;cursor:pointer;color:inherit;background:#303740;border:1px solid #4e5865;border-radius:10px;padding:12px 18px}button:hover{background:#3e4855}button:focus-visible{outline:3px solid #85baff;outline-offset:3px}button:disabled{opacity:.5;cursor:wait}.mode{text-align:left;padding:18px;display:flex;justify-content:space-between;gap:18px}.mode strong{display:block;font-size:19px}.mode small{display:block;margin-top:5px;color:#b9c2ce;line-height:1.4}.mode[aria-pressed=true]{border-color:#8abaff;background:#26374c}.mode[data-mode=full] strong{color:#ffa772}.check{font-size:24px;align-self:center}.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}select{padding:9px;border-radius:8px;color:inherit;background:#303740;border:1px solid #4e5865;font:inherit}#status{color:#a8d9bc}#error{color:#ffb2a9;white-space:pre-wrap}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;max-height:260px;overflow:auto;background:#151719;border-radius:9px;padding:16px}h2{font-size:20px}.request{border-top:1px solid #414955;margin-top:18px;padding-top:18px}.allow{background:#234d3a}.deny{border-color:#ab6c66}.note{font-size:13px}.badge{font-size:12px;color:#a6b0bd;text-transform:uppercase;letter-spacing:1px}#connection{font-size:14px}footer{font-size:13px;line-height:1.5;color:#adb4bf}code{color:#dce5f3}
+</style></head><body><main>
+<span class="badge">Reach MCP · Local owner controls</span><h1>How should desktop actions be approved?</h1>
+<p>These controls apply to this server process and all its MCP clients. Every restart returns to Ask for approval.</p>
+<div id="connection" role="status">Connecting…</div><div id="error" role="alert"></div>
+<section class="card" aria-label="Approval mode"><div class="modes">
+<button class="mode" data-mode="ask" aria-pressed="false"><span><strong>Ask for approval</strong><small>Approve each tool call, including screenshots and other reads.</small></span><span class="check" aria-hidden="true"></span></button>
+<button class="mode" data-mode="low_risk" aria-pressed="false"><span><strong>Approve for me</strong><small>Automatically allow screen, window and cursor reads and waits. Ask before input, clipboard access or launching apps. Uses fixed rules.</small></span><span class="check" aria-hidden="true"></span></button>
+<button class="mode" data-mode="full" aria-pressed="false"><span><strong>Full access</strong><small>Allow available desktop tools without prompts. Elevated risk. Kill switches and tool restrictions still apply.</small></span><span class="check" aria-hidden="true"></span></button>
+</div><p id="status" role="status"></p><div class="row"><label for="duration">Automatic access lasts</label><select id="duration"><option value="300">5 minutes</option><option value="900" selected>15 minutes</option><option value="3600">1 hour</option></select><button id="revoke">Revoke access</button></div>
+<p class="note">Changing modes cancels pending requests. Revoking access returns to Ask and blocks new calls until approved; it cannot undo an action already dispatched.</p></section>
+<section class="card"><h2>Waiting for your approval</h2><p class="note">Allow once approves only the displayed tool and arguments. Requests expire after 60 seconds. Client labels are supplied by the client and are not verified chat identities.</p><div id="pending"><p>No pending requests.</p></div></section>
+<footer>This page is a control for accidental use, not a sandbox. Software running as your Windows user can access local controls. Keep client-side approval enabled and use an isolated VM for untrusted tasks. Never publish this control port or share its capability link.</footer>
+</main><script nonce="CSP_NONCE">
+"use strict";
+const key="reach-mcp-owner-token";
+let token=location.hash.slice(1)||sessionStorage.getItem(key)||"";
+if(location.hash){sessionStorage.setItem(key,token);history.replaceState(null,"",location.pathname)}
+const el=id=>document.getElementById(id);
+let busy=false;
+async function api(path,body){
+ const options={headers:{"Authorization":"Bearer "+token},cache:"no-store"};
+ if(body!==undefined){options.method="POST";options.headers["Content-Type"]="application/json";options.body=JSON.stringify(body)}
+ const response=await fetch(path,options);const data=await response.json();
+ if(!response.ok)throw new Error(data.error||"Control request failed");
+ return data;
+}
+function show(s){
+ el("connection").textContent="Connected to local owner controls";
+ document.querySelectorAll(".mode").forEach(b=>{const selected=b.dataset.mode===s.mode;b.setAttribute("aria-pressed",String(selected));b.querySelector(".check").textContent=selected?"✓":""});
+ el("status").textContent=s.mode==="ask"?"Every call requires approval.":("Automatic access expires "+new Date(s.expires_at*1000).toLocaleTimeString()+".");
+ const list=el("pending");list.replaceChildren();
+ if(!s.pending.length){const p=document.createElement("p");p.textContent="No pending requests.";list.append(p)}
+ for(const r of s.pending){
+  const card=document.createElement("article");card.className="request";
+  const title=document.createElement("h3");title.textContent=r.tool;card.append(title);
+  const meta=document.createElement("p");meta.className="note";meta.textContent="Client: "+(r.client||"unlabelled")+" · expires "+new Date(r.expires_at*1000).toLocaleTimeString();card.append(meta);
+  const args=document.createElement("pre");args.textContent=JSON.stringify(r.arguments,null,2);card.append(args);
+  const row=document.createElement("div");row.className="row";
+  for(const [label,allow,cls] of [["Deny",false,"deny"],["Allow once",true,"allow"]]){
+   const b=document.createElement("button");b.textContent=label;b.className=cls;b.addEventListener("click",()=>mutate("/api/decision",{id:r.id,allow}));row.append(b)
+  }card.append(row);list.append(card)
+ }
+ el("error").textContent="";
+}
+async function refresh(){if(busy)return;try{show(await api("/api/state"))}catch(e){el("connection").textContent="Disconnected — calls still require server authorization.";el("error").textContent=e.message+". Open scripts/open-controls.ps1 for this server."}}
+async function mutate(path,body){if(busy)return;busy=true;document.querySelectorAll("button").forEach(b=>b.disabled=true);try{show(await api(path,body))}catch(e){el("error").textContent=e.message}finally{busy=false;document.querySelectorAll("button").forEach(b=>b.disabled=false)}}
+document.querySelectorAll(".mode").forEach(b=>b.addEventListener("click",()=>{
+ const mode=b.dataset.mode;
+ if(mode==="full"&&!confirm("Allow all available desktop tools without approval for this limited period? Any connected client may control this Windows user."))return;
+ mutate("/api/mode",{mode,duration:Number(el("duration").value)})
+}));
+el("revoke").addEventListener("click",()=>mutate("/api/mode",{mode:"ask",duration:900}));
+refresh();setInterval(refresh,1000);
+</script></body></html>

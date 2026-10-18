@@ -1,0 +1,2 @@
+# Isolated from the native MCP SDK environment.
+fastmcp==4.0.10
