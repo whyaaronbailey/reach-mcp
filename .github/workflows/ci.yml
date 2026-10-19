@@ -16,11 +16,14 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install native environment
-        run: python -m pip install -e ".[dev]"
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          .venv/Scripts/python -m pip install -e ".[dev]"
       - name: Native unit tests
-        run: python -m pytest -q
+        run: .venv/Scripts/python -m pytest -q
       - name: Build distributions
-        run: python -m build
+        run: .venv/Scripts/python -m build
       - name: Install isolated relay environment
         shell: pwsh
         run: |
