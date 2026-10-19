@@ -34,7 +34,18 @@ def fail():
     raise RuntimeError("synthetic-private-stack-trace")
 
 native.windows.foreground = fail
+native.desktop.status = lambda: {"available": True, "locked": False, "reason": None}
 gate = ApprovalGate(timeout=0.1)
+if sys.argv[1] in {"locked", "transition"}:
+    gate = ApprovalGate(policy="client")
+if sys.argv[1] == "locked":
+    native.desktop.status = lambda: {"available": False, "locked": True, "reason": "locked"}
+    native.winput.cursor_pos = lambda: (_ for _ in ()).throw(AssertionError("no cursor on lock"))
+if sys.argv[1] == "transition":
+    native.winput.cursor_pos = lambda: (20, 30)
+    def interrupted(*args, **kwargs):
+        raise native.desktop.DesktopUnavailableError("synthetic-private-stack-trace")
+    native.winput.type_unicode = interrupted
 if sys.argv[1] in {"crash", "success"}:
     gate.set_mode("low_risk")
 if sys.argv[1] == "success":
@@ -72,7 +83,9 @@ class ApprovalErrorTests(unittest.TestCase):
                 tools = await client.list_tools()
                 self.assertIn("reach_get_screen_info", {tool.name for tool in tools})
                 return await client.call_tool(
-                    "reach_get_screen_info", {}, raise_on_error=False
+                    "reach_type_text" if scenario in {"locked", "transition"} else "reach_get_screen_info",
+                    {"text": "synthetic private typed text"} if scenario in {"locked", "transition"} else {},
+                    raise_on_error=False
                 )
 
         with tempfile.TemporaryDirectory(prefix="reach-error-test-") as directory:
@@ -102,6 +115,18 @@ class ApprovalErrorTests(unittest.TestCase):
         self.assertEqual(info["monitors"], [])
         self.assertIsNone(info["foreground_window"])
         self.assertFalse(info["server_elevated"])
+
+    def test_locked_desktop_error_survives_relay_without_local_approval_advice(self):
+        for scenario in ("locked", "transition"):
+            with self.subTest(scenario=scenario):
+                result = self.run_proxy_call(scenario)
+                self.assertTrue(result.is_error)
+                text = "\n".join(block.text for block in result.content if block.type == "text")
+                self.assertIn("interactive Windows desktop", text)
+                self.assertIn("partially applied", text)
+                self.assertNotIn("approval timed out", text)
+                self.assertNotIn("synthetic-private", text)
+                self.assertNotIn("synthetic private typed text", text)
 
     def test_native_unexpected_exception_stays_masked_through_relay(self):
         result = self.run_proxy_call("crash")

@@ -40,3 +40,20 @@ Version 0.2.2 adds `--approval-policy client` to the native server and `-Approva
 The omitted-parameter default remains `local`, which starts in Ask mode and retains the local approval panel's three modes. Client policy does not expire into local Ask mode. Both policies keep authentication, loopback listeners, disabled-tool rules, input kill switches, and audit logging.
 
 Client-policy validation includes 144 native tests, owner-authorization checks, native-to-relay regression tests, and a live OAuth connection returning screen information without a VM approval request. The local policy retains its separate approval and safety regression coverage.
+
+## Desktop availability and client guidance
+
+Version 0.2.3 reports the selected approval policy and interactive Windows session
+availability in screen information. Locked, disconnected, or inaccessible desktops
+are rejected before input dispatch, and known Windows desktop access failures return
+an actionable, sanitized error through the relay. Interrupted input may be partial,
+so clients are instructed to inspect the target before retrying.
+
+Native instructions now describe the actual startup policy. Relay instructions
+explicitly separate Windows session availability from local approval failures.
+Unknown handler errors remain masked. No Windows unlock, credential entry, automatic
+login, locking-policy change, elevation, or secure-desktop bypass is implemented.
+
+Validation includes 157 native tests and four native-to-relay error tests, including
+locked-session rejection and an interruption during typing. Full live text entry
+still requires an unlocked interactive desktop; unit tests use synthetic sessions.

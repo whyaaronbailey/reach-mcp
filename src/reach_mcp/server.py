@@ -22,16 +22,13 @@ from .audit import AuditLog
 from .approval import ApprovalError, ApprovalGate
 from .capture import CaptureHistory, draw_cursor, encode, fit_scale, scale_image
 from .config import Config
-from .win import clipboard, screen, windows
+from .win import clipboard, desktop, screen, windows
 from .win import input as winput
 from .win.dpi import dpi_mode
 from .win.keys import parse_combo
 
 INSTRUCTIONS = """\
 Desktop control for the user's Windows PC (screenshots, mouse, keyboard, windows, clipboard).
-The server starts in Ask for approval. Every desktop read and action needs an owner decision
-unless the owner temporarily chooses Approve for me (a fixed observation-only allowlist) or
-Full access in the separate local control panel. Approval waits expire after 60 seconds.
 Never attempt to approve your own requests or change the owner's approval settings.
 
 Work in a loop: observe -> act -> verify.
@@ -48,8 +45,25 @@ text (any Unicode) and `reach_press_keys` for shortcuts like "ctrl+s", "alt+tab"
 Ask the user before irreversible actions (sending, deleting, purchasing, submitting forms,
 changing system settings). Never enter passwords or payment details.
 If a tool reports the failsafe or pause is active, stop and tell the user.
-Elevated (administrator) windows and UAC prompts cannot be controlled; ask the user.
+Elevated (administrator) windows, UAC prompts, and locked or disconnected Windows sessions
+cannot be controlled. Report the returned reason; do not assume a tool failure means approval
+is missing. A failed typing action may be partial: inspect the target before retrying.
 """
+
+APPROVAL_INSTRUCTIONS = {
+    "local": (
+        "Approval policy: local. The server starts in Ask for approval. Every desktop read "
+        "and action needs an owner decision unless the owner temporarily chooses Approve "
+        "for me or Full access in the local control panel. Approval waits expire after 60 seconds."
+    ),
+    "client": (
+        "Approval policy: client. Follow the connected chat client's permission controls. "
+        "There is no VM-local approval prompt or queue, and this policy does not expire. "
+        "Do not ask the user to open local approval controls. Use reach_get_screen_info "
+        "to distinguish desktop availability from transport or permission failures."
+    ),
+}
+
 
 Space = Literal["screenshot", "screen"]
 Button = Literal["left", "right", "middle"]
@@ -106,15 +120,15 @@ def _is_admin() -> bool:
 
 
 def build_server(cfg: Config, client_label: str = "", approval_gate: ApprovalGate | None = None) -> MCPServer:
+    approval = approval_gate if approval_gate is not None else ApprovalGate()
     server = MCPServer(
         name="reach-mcp",
         title="Reach MCP",
         description="Agent-independent Windows desktop control: screenshots, mouse, keyboard, windows.",
-        instructions=INSTRUCTIONS,
+        instructions=APPROVAL_INSTRUCTIONS[approval.policy] + "\n\n" + INSTRUCTIONS,
         version=__version__,
     )
     audit = AuditLog(cfg.audit.path, cfg.audit.enabled, cfg.audit.log_typed_text, client_label)
-    approval = approval_gate if approval_gate is not None else ApprovalGate()
     history = CaptureHistory()
     execution_lock = anyio.Lock()
 
@@ -126,6 +140,7 @@ def build_server(cfg: Config, client_label: str = "", approval_gate: ApprovalGat
                 f"Paused: {cfg.safety.pause_file} exists. The user has paused desktop control; "
                 "stop and ask them before continuing."
             )
+        desktop.require_available()
         if cfg.safety.failsafe_corner:
             x, y = winput.cursor_pos()
             if x <= 2 and y <= 2:
@@ -182,6 +197,7 @@ def build_server(cfg: Config, client_label: str = "", approval_gate: ApprovalGat
                     raise ValueError(f"no monitor {monitor}; see reach_get_screen_info")
                 left, top, width, height, source = mon.left, mon.top, mon.width, mon.height, f"monitor {mon.index}"
 
+        desktop.require_available()
         img = screen.grab(left, top, width, height)
         scale = fit_scale(width, height, max_long_edge or cfg.screenshot.max_long_edge)
         img = scale_image(img, scale)
@@ -270,6 +286,10 @@ def build_server(cfg: Config, client_label: str = "", approval_gate: ApprovalGat
                         # The SDK masks unanticipated exceptions. Approval outcomes
                         # are expected and safe to explain, without exposing raw errors.
                         raise ToolError(_approval_message(e)) from e
+                    if isinstance(e, desktop.DesktopUnavailableError):
+                        raise ToolError(desktop.UNAVAILABLE_MESSAGE) from e
+                    if isinstance(e, winput.InputBlockedError) and not desktop.status()["available"]:
+                        raise ToolError(desktop.UNAVAILABLE_MESSAGE) from e
                     raise
                 finally:
                     approval.revoke(grant)
@@ -297,10 +317,21 @@ def build_server(cfg: Config, client_label: str = "", approval_gate: ApprovalGat
     def reach_get_screen_info() -> str:
         """Monitors, virtual desktop bounds, cursor position, foreground window, last screenshot and safety state."""
         fg = windows.foreground()
+        desktop_state = desktop.status()
+        cursor = None
+        if desktop_state["available"]:
+            try:
+                cursor = winput.cursor_pos()
+            except desktop.DesktopUnavailableError:
+                desktop_state = desktop.status()
+                desktop_state["available"] = False
+                desktop_state["reason"] = desktop_state["reason"] or "secure_or_unavailable"
         return json.dumps({
+            "approval_policy": approval.policy,
+            "desktop": desktop_state,
             "monitors": [m.to_dict() for m in screen.monitors()],
             "virtual_screen": dict(zip(("left", "top", "width", "height"), screen.virtual_screen())),
-            "cursor": winput.cursor_pos(),
+            "cursor": cursor,
             "foreground_window": fg.to_dict() if fg else None,
             "last_screenshot": history.last.describe() if history.last else None,
             "dpi_awareness": dpi_mode(),

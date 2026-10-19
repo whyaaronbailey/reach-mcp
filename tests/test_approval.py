@@ -204,6 +204,9 @@ def native_fixture(monkeypatch, tmp_path, gate):
     from reach_mcp import server as native
     from reach_mcp.config import Config
     monkeypatch.setattr(native, "MCPServer", FakeMCPServer)
+    monkeypatch.setattr(native.desktop, "status", lambda: {
+        "available": True, "locked": False, "reason": None,
+    })
     cfg = Config()
     cfg.audit.path = tmp_path / "audit.jsonl"
     cfg.safety.pause_file = tmp_path / "PAUSED"

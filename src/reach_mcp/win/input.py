@@ -14,6 +14,7 @@ import time
 from ctypes import wintypes
 
 from .keys import Key
+from .desktop import DesktopUnavailableError
 
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 
@@ -137,13 +138,19 @@ _BUTTONS = {
 def cursor_pos() -> tuple[int, int]:
     pt = wintypes.POINT()
     if not user32.GetCursorPos(ctypes.byref(pt)):
-        raise ctypes.WinError(ctypes.get_last_error())
+        error = ctypes.WinError(ctypes.get_last_error())
+        if error.winerror == 5:
+            raise DesktopUnavailableError() from error
+        raise error
     return pt.x, pt.y
 
 
 def move_to(x: int, y: int) -> None:
     if not user32.SetCursorPos(int(x), int(y)):
-        raise ctypes.WinError(ctypes.get_last_error())
+        error = ctypes.WinError(ctypes.get_last_error())
+        if error.winerror == 5:
+            raise DesktopUnavailableError() from error
+        raise error
 
 
 def button_down(button: str = "left") -> None:

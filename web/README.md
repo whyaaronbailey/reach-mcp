@@ -109,6 +109,27 @@ If you deliberately selected local policy, open `scripts\open-controls.ps1` on t
 
 Expected approval failures return an actionable message. Unexpected handler failures stay masked remotely; inspect private `logs\audit.jsonl` and `web\server-stderr.log` for their cause.
 
+## A launch succeeds but typing fails or Windows is locked
+
+Application launch does not prove that the interactive Windows desktop is available.
+A locked session, a disconnected session, or a secure Windows prompt can prevent
+normal desktop input. Opening local approval controls does not resolve this state.
+
+Version 0.2.3 reports `approval_policy` and `desktop` availability in
+`reach_get_screen_info`. Screen information remains readable when the cursor cannot
+be queried. Input calls check session availability before dispatch; known desktop
+access failures return a safe, actionable message through the relay.
+
+A typing call interrupted by a desktop change may already have entered some text.
+Restore an unlocked Windows session and inspect the target before retrying.
+Reach MCP does not unlock Windows, enter credentials, disable locking, or bypass UAC.
+For unattended use, the owner must deliberately arrange an available interactive
+session on the dedicated VM. Client-managed approval does not bypass Windows login.
+
+Native instructions reflect the selected startup approval policy. Relay instructions
+tell clients to distinguish desktop availability from local approval failures.
+Existing clients may need a new connection or refreshed catalog to pick up instructions.
+
 ## Disable or revoke
 
 Input pause:

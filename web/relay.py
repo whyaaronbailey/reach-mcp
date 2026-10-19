@@ -40,6 +40,16 @@ EXPOSED_TOOLS = frozenset({
 # server/discover is the modern-MCP handshake (successor to initialize; metadata only).
 METHODS = frozenset({"initialize", "server/discover", "notifications/initialized", "ping",
                      "tools/list", "tools/call"})
+RELAY_INSTRUCTIONS = (
+    "Control the authenticated owner's Windows desktop using observe, act, verify. "
+    "Follow the connected client's permission controls. reach_get_screen_info reports "
+    "approval_policy and desktop availability. Under client policy no VM-local approval "
+    "is required. Request local approval only if the server explicitly reports a local "
+    "approval failure. A locked, disconnected, or secure Windows desktop requires the "
+    "user to restore the Windows session; opening approval controls cannot fix it. "
+    "An interrupted action may be partial: inspect the target before retrying input. "
+    "Never unlock Windows, enter passwords, or approve your own requests."
+)
 MAX_BODY = 262144
 CLIENT_REDIRECTS = [
     "https://claude.ai/api/mcp/auth_callback",
@@ -203,7 +213,7 @@ def build_server(config, auth=True):
     config = validate_config(config)
     provider = ExposedProvider(native_client_factory(config["native_url"], config["native_token"]))
     if not auth:  # local tests of the proxy path only; never served
-        return FastMCP("Reach MCP", providers=[provider], mask_error_details=True)
+        return FastMCP("Reach MCP", providers=[provider], instructions=RELAY_INSTRUCTIONS, mask_error_details=True)
     github = GitHubProvider(
         client_id=config["client_id"],
         client_secret=config["client_secret"],
@@ -216,7 +226,7 @@ def build_server(config, auth=True):
     )
     github._token_validator = OwnerOnlyVerifier(
         config["allowed_github_user_ids"], required_scopes=["read:user"], cache_ttl_seconds=300)
-    return FastMCP("Reach MCP", providers=[provider], auth=github, mask_error_details=True)
+    return FastMCP("Reach MCP", providers=[provider], auth=github, instructions=RELAY_INSTRUCTIONS, mask_error_details=True)
 
 
 def create_app(config):
