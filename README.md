@@ -8,23 +8,40 @@ The server is designed for a dedicated Windows VM. Desktop control runs with the
 
 ## Approval controls
 
-The local control panel offers three modes:
+Choose where approvals happen when starting the server:
 
-| Mode | Behavior |
+| Policy | Behavior |
 | --- | --- |
-| Ask for approval (default) | Each desktop tool call waits for a local approval. Reads require approval too. |
-| Approve for me | Automatically allows a small, fixed set of observation tools; clipboard reads and actions still require approval. |
-| Full access | Bypasses the approval queue for the selected time window. Other safety checks remain active. |
+| `client` | The connected MCP client's permission settings govern consent. No local approval prompt or queue is used. |
+| `local` (default) | The native server requires decisions in its local control panel, independently of any client prompts. |
 
-These controls are enforced by the native server, independently of the MCP client's permission setting. “Low risk” means an explicit tool allowlist, not AI judgment of an action's intent. Screenshots and window information can still contain private data.
+For remote Chat use with approvals only in the chat, start the relay with:
 
-The server starts in Ask mode. Temporary modes expire back to Ask; changing modes cancels pending requests. Open the panel from the Windows desktop after starting a server:
+```powershell
+.\web\run-web.ps1 -ApprovalPolicy client
+```
+
+In ChatGPT, select **Always ask** in the Reach MCP plugin's permissions. You can then approve tool requests from the chat without being at the VM. Other clients must provide and enforce their own permission controls. Keep `-ApprovalPolicy client` in the startup task's command if you want this choice to survive restarts.
+
+Client policy trusts the connected client to obtain consent. MCP does not provide Reach MCP with cryptographic proof that a human approved each call, so the server cannot verify the chat's permission prompt. OAuth owner authentication, native HTTP bearer authentication, loopback listeners, disabled-tool rules, audit logging, and input kill switches still apply. See [SECURITY.md](SECURITY.md).
+
+For an additional local decision, use `local` policy and open the controls from the Windows desktop:
 
 ```powershell
 .\scripts\open-controls.ps1
 ```
 
-The panel and its private URL are local-only. Do not expose its port, share its URL, or add it to the public relay. A client may also ask for approval, so both prompts can apply. See [SECURITY.md](SECURITY.md) for the limits of a panel running on the controlled desktop.
+The local control panel offers three modes:
+
+| Mode | Behavior under local policy |
+| --- | --- |
+| Ask for approval (startup default) | Each desktop tool call waits for a local approval. Reads require approval too. |
+| Approve for me | Automatically allows a small, fixed set of observation tools; clipboard reads and actions still require approval. |
+| Full access | Bypasses the local approval queue for the selected time window. Other safety checks remain active. |
+
+Temporary local modes expire back to Ask; changing modes cancels pending requests. “Low risk” means an explicit tool allowlist, not AI judgment of an action's intent. Screenshots and window information can still contain private data. Client policy is a separate startup policy, not a temporary Full access mode.
+
+The panel and its private URL are local-only. Do not expose its port, share its URL, or add it to the public relay. With local policy, both client and local prompts can apply.
 
 ## Requirements and setup
 
@@ -49,7 +66,7 @@ From the project directory:
 
 Setup creates `.venv`, installs the project and development dependencies, and runs the unit tests. It does not register an MCP client, publish a network endpoint, or create a startup task.
 
-Start a stdio server:
+Start a stdio server with the default local approval policy:
 
 ```powershell
 .\.venv\Scripts\reach-mcp.exe --client local

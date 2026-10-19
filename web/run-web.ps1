@@ -1,3 +1,5 @@
+param([ValidateSet('local','client')][string]$ApprovalPolicy = 'local')
+
 # Run the loopback native server and OAuth relay as the logged-in desktop user.
 $ErrorActionPreference = 'Stop'
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -27,7 +29,7 @@ try {
     $env:REACH_MCP_TOKEN = $cfg.native_token
     try {
         $server = Start-Process -FilePath (Join-Path $root '.venv\Scripts\pythonw.exe') `
-            -ArgumentList @('-m','reach_mcp','--transport','http','--port',"$nativePort",'--client','web-relay') `
+            -ArgumentList @('-m','reach_mcp','--transport','http','--port',"$nativePort",'--client','web-relay','--approval-policy',$ApprovalPolicy) `
             -WorkingDirectory $root -WindowStyle Hidden -PassThru `
             -RedirectStandardError (Join-Path $web 'server-stderr.log')
     } finally {

@@ -4,16 +4,17 @@
 <style nonce="CSP_NONCE">
 :root{color-scheme:dark;font-family:system-ui,sans-serif;background:#151719;color:#f1f3f4}body{margin:0;padding:32px 20px}main{max-width:800px;margin:auto}h1{font-size:28px;margin-bottom:6px}p{color:#adb4bf;line-height:1.55}.card{background:#202428;border:1px solid #383e46;border-radius:18px;padding:24px;margin:24px 0}.modes{display:grid;gap:12px}button{font:inherit;cursor:pointer;color:inherit;background:#303740;border:1px solid #4e5865;border-radius:10px;padding:12px 18px}button:hover{background:#3e4855}button:focus-visible{outline:3px solid #85baff;outline-offset:3px}button:disabled{opacity:.5;cursor:wait}.mode{text-align:left;padding:18px;display:flex;justify-content:space-between;gap:18px}.mode strong{display:block;font-size:19px}.mode small{display:block;margin-top:5px;color:#b9c2ce;line-height:1.4}.mode[aria-pressed=true]{border-color:#8abaff;background:#26374c}.mode[data-mode=full] strong{color:#ffa772}.check{font-size:24px;align-self:center}.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}select{padding:9px;border-radius:8px;color:inherit;background:#303740;border:1px solid #4e5865;font:inherit}#status{color:#a8d9bc}#error{color:#ffb2a9;white-space:pre-wrap}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;max-height:260px;overflow:auto;background:#151719;border-radius:9px;padding:16px}h2{font-size:20px}.request{border-top:1px solid #414955;margin-top:18px;padding-top:18px}.allow{background:#234d3a}.deny{border-color:#ab6c66}.note{font-size:13px}.badge{font-size:12px;color:#a6b0bd;text-transform:uppercase;letter-spacing:1px}#connection{font-size:14px}footer{font-size:13px;line-height:1.5;color:#adb4bf}code{color:#dce5f3}
 </style></head><body><main>
-<span class="badge">Reach MCP · Local owner controls</span><h1>How should desktop actions be approved?</h1>
-<p>These controls apply to this server process and all its MCP clients. Every restart returns to Ask for approval.</p>
+<span class="badge">Reach MCP · Local owner controls</span><h1 id="heading">How should desktop actions be approved?</h1>
+<p id="policy-description">Connecting to the approval policy for this server process.</p>
 <div id="connection" role="status">Connecting…</div><div id="error" role="alert"></div>
-<section class="card" aria-label="Approval mode"><div class="modes">
+<section id="client-policy" class="card" hidden><h2>Approvals handled by connected chat client</h2><p>Configure approval permissions in your chat client. Authenticated tool calls run without a local prompt. The server does not receive or verify a separate per-call approval receipt.</p><p class="note">Changing this startup policy requires a server restart. Input kill switches, disabled tools and the OAuth owner lock still apply.</p></section>
+<section id="local-modes" class="card" aria-label="Approval mode" hidden><div class="modes">
 <button class="mode" data-mode="ask" aria-pressed="false"><span><strong>Ask for approval</strong><small>Approve each tool call, including screenshots and other reads.</small></span><span class="check" aria-hidden="true"></span></button>
 <button class="mode" data-mode="low_risk" aria-pressed="false"><span><strong>Approve for me</strong><small>Automatically allow screen, window and cursor reads and waits. Ask before input, clipboard access or launching apps. Uses fixed rules.</small></span><span class="check" aria-hidden="true"></span></button>
 <button class="mode" data-mode="full" aria-pressed="false"><span><strong>Full access</strong><small>Allow available desktop tools without prompts. Elevated risk. Kill switches and tool restrictions still apply.</small></span><span class="check" aria-hidden="true"></span></button>
 </div><p id="status" role="status"></p><div class="row"><label for="duration">Automatic access lasts</label><select id="duration"><option value="300">5 minutes</option><option value="900" selected>15 minutes</option><option value="3600">1 hour</option></select><button id="revoke">Revoke access</button></div>
 <p class="note">Changing modes cancels pending requests. Revoking access returns to Ask and blocks new calls until approved; it cannot undo an action already dispatched.</p></section>
-<section class="card"><h2>Waiting for your approval</h2><p class="note">Allow once approves only the displayed tool and arguments. Requests expire after 60 seconds. Client labels are supplied by the client and are not verified chat identities.</p><div id="pending"><p>No pending requests.</p></div></section>
+<section id="local-pending" class="card" hidden><h2>Waiting for your approval</h2><p class="note">Allow once approves only the displayed tool and arguments. Requests expire after 60 seconds. Client labels are supplied by the client and are not verified chat identities.</p><div id="pending"><p>No pending requests.</p></div></section>
 <footer>This page is a control for accidental use, not a sandbox. Software running as your Windows user can access local controls. Keep client-side approval enabled and use an isolated VM for untrusted tasks. Never publish this control port or share its capability link.</footer>
 </main><script nonce="CSP_NONCE">
 "use strict";
@@ -30,7 +31,13 @@ async function api(path,body){
  return data;
 }
 function show(s){
- el("connection").textContent="Connected to local owner controls";
+ el("connection").textContent=s.closed?"Server approval controller is closed":"Connected to local owner controls";
+ const clientPolicy=s.policy==="client";
+ el("heading").textContent=clientPolicy?"Chat client approvals":"How should desktop actions be approved?";
+ el("policy-description").textContent=clientPolicy?"This server delegates approval decisions to the connected MCP client. No approval is required on this Windows desktop.":"These controls apply to this server process and all its MCP clients. The local policy starts in Ask for approval after every restart.";
+ el("client-policy").hidden=!clientPolicy;
+ el("local-modes").hidden=clientPolicy;
+ el("local-pending").hidden=clientPolicy;
  document.querySelectorAll(".mode").forEach(b=>{const selected=b.dataset.mode===s.mode;b.setAttribute("aria-pressed",String(selected));b.querySelector(".check").textContent=selected?"✓":""});
  el("status").textContent=s.mode==="ask"?"Every call requires approval.":("Automatic access expires "+new Date(s.expires_at*1000).toLocaleTimeString()+".");
  const list=el("pending");list.replaceChildren();
@@ -47,7 +54,7 @@ function show(s){
  }
  el("error").textContent="";
 }
-async function refresh(){if(busy)return;try{show(await api("/api/state"))}catch(e){el("connection").textContent="Disconnected — calls still require server authorization.";el("error").textContent=e.message+". Open scripts/open-controls.ps1 for this server."}}
+async function refresh(){if(busy)return;try{show(await api("/api/state"))}catch(e){el("connection").textContent="Disconnected from local owner controls.";el("error").textContent=e.message+". Open scripts/open-controls.ps1 for this server."}}
 async function mutate(path,body){if(busy)return;busy=true;document.querySelectorAll("button").forEach(b=>b.disabled=true);try{show(await api(path,body))}catch(e){el("error").textContent=e.message}finally{busy=false;document.querySelectorAll("button").forEach(b=>b.disabled=false)}}
 document.querySelectorAll(".mode").forEach(b=>b.addEventListener("click",()=>{
  const mode=b.dataset.mode;

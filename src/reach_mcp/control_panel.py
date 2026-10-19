@@ -23,7 +23,7 @@ from starlette.responses import HTMLResponse, JSONResponse
 from starlette.routing import Route
 import uvicorn
 
-from .approval import ApprovalGate
+from .approval import ApprovalError, ApprovalGate
 from .audit import AuditLog
 
 MAX_BODY = 4096
@@ -140,6 +140,8 @@ class ControlPanel:
                     if not self.gate.decide(data["id"], data["allow"]):
                         return JSONResponse({"error": "Request expired or already decided"}, status_code=409)
                     self._record("approval_decision", data)
+            except ApprovalError as exc:
+                return JSONResponse({"error": str(exc)}, status_code=409)
             except (ValueError, TypeError):
                 return JSONResponse({"error": "Invalid control request"}, status_code=400)
             return JSONResponse(self.gate.snapshot())

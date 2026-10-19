@@ -48,19 +48,19 @@ The native port can be changed with `-NativePort` during configuration; use a di
 
 ## Run and verify locally
 
+For approvals only in your trusted chat client:
+
 ```powershell
-.\web\run-web.ps1
+.\web\run-web.ps1 -ApprovalPolicy client
 ```
 
 The runner refuses elevation and mismatched deployment identity. A Windows job object keeps the runner and its children together; stopping the runner closes both servers. It also exits if either child fails.
 
-Open the approval controls from another local shell:
+Select **Always ask** in the ChatGPT plugin's permissions before using the tools. With client policy, requests run after the connected client sends them; there is no additional VM approval queue. You can use the chat remotely without opening the VM controls.
 
-```powershell
-.\scripts\open-controls.ps1
-```
+Client policy trusts the authenticated client to enforce consent. The native MCP server receives no cryptographic evidence of a human's approval in the chat. Owner authentication is not per-call consent. Other clients must supply their own permission controls.
 
-The native server starts in Ask mode. Approve pending calls locally, or choose a temporary mode for a task you have authorized. The relay has no API to change approval modes.
+For an additional local approval layer, run `web\run-web.ps1 -ApprovalPolicy local` (also the default when the parameter is omitted). That policy starts in Ask mode. Open `scripts\open-controls.ps1` on the VM to approve pending calls or choose a temporary local mode. The relay cannot change the startup policy through an MCP tool. Both policies retain owner authentication, bearer protection, loopback listeners, disabled-tool rules, audit logging, and input kill switches.
 
 Unit checks do not publish anything:
 
@@ -77,7 +77,7 @@ Run the isolated integration test deliberately from a non-elevated interactive d
 
 The wrapper creates fresh dummy credentials, a temporary native listener on port 18765, and an ephemeral local approval panel. It explicitly selects low-risk mode for its own observation calls through the normal owner API, then runs the relay tests on port 8899. It does not read production credentials or change the running deployment. Its Windows job removes test child processes and their descendants on exit. The test reads screen information and captures a screenshot.
 
-To test a specific already-running native server, run the relay environment's Python with `web/test_relay.py --config <local-json-path>`. Such a server still needs its own approvals. Dummy-credential checks do not prove a real GitHub login or external connectivity.
+To test a specific already-running native server, run the relay environment's Python with `web/test_relay.py --config <local-json-path>`. A server using local policy still needs its own local approvals; client policy has no local approval queue. Dummy-credential checks do not prove a real GitHub login or external connectivity.
 
 ## Publish deliberately
 
@@ -91,27 +91,23 @@ tailscale funnel --bg --https=443 http://127.0.0.1:8891
 
 Verify from a separate network that unauthenticated MCP requests return 401, unknown methods/tools return 403, and OAuth discovery reports the configured public origin. Then complete a real owner sign-in. Unit tests with mocked GitHub responses cannot replace this step.
 
-If you want startup at login, register an interactive, non-elevated scheduled task for `web\run-web.ps1`. Use the desktop user's account, Limited privileges, and no execution time limit. Do not run the desktop server as SYSTEM or as an administrator. A logged-in interactive desktop is required.
+If you want startup at login, register an interactive, non-elevated scheduled task for `web\run-web.ps1`. Use the desktop user's account, Limited privileges, and no execution time limit. Do not run the desktop server as SYSTEM or as an administrator. A logged-in interactive desktop is required. Include `-ApprovalPolicy client` in the task's runner arguments for chat-only consent after a restart; omitting it selects local policy and starts in Ask mode.
 
 ## Connect a remote client
 
-In ChatGPT, add a custom MCP server with the public `/mcp` URL and OAuth authentication. Complete GitHub sign-in as the configured owner. In the plugin's permissions, use Always ask if you also want client-side prompts before reads and changes. Product labels and availability can change.
+In ChatGPT, add a custom MCP server with the public `/mcp` URL and OAuth authentication. Complete GitHub sign-in as the configured owner. In the plugin's permissions, select **Always ask** for prompts before reads and changes. Run the server with `-ApprovalPolicy client` for approvals only in the chat. Product labels and availability can change.
 
-A client approval and a native-server approval are separate checks. OAuth proves the owner identity; it is not a per-action consent grant. An ordinary Chat connection does not establish or guarantee any provider's billing or usage accounting.
+Under local policy, a client approval and a native-server approval are separate checks. Under client policy, consent is delegated to the client. OAuth proves the owner identity; it is not a per-action consent grant. An ordinary Chat connection does not establish or guarantee any provider's billing or usage accounting.
 
 ## A tool is discovered but its call fails after a minute
 
-Ask mode also requires a decision in the local owner panel. Client-side consent
-(such as ChatGPT's Allow once) does not grant native-server approval. A pending
-call expires after 60 seconds if no local decision arrives; the desktop handler
-does not run.
+A local-approval timeout means the native server is using local policy. Its pending call expired after 60 seconds without a local decision; the desktop handler did not run. Empty arguments are valid for `reach_get_screen_info`.
 
-Open scripts\open-controls.ps1 on the VM, retry the tool call, and approve that
-pending call with Allow once before it expires. Expired calls must be retried.
-Keep Ask selected unless you deliberately authorize a temporary automatic mode.
-Expected approval failures return an actionable message. Unexpected handler
-failures stay masked remotely; inspect private logs\audit.jsonl and
-web\server-stderr.log for their cause.
+If you want approvals only in the chat, stop the runner and restart it with `-ApprovalPolicy client`, then retry. Retain that parameter in any startup task and keep the client's permission controls enabled. A server already running under local policy must be restarted to change its startup policy.
+
+If you deliberately selected local policy, open `scripts\open-controls.ps1` on the VM, retry the tool call, and approve the new pending call before it expires. Expired calls must be retried.
+
+Expected approval failures return an actionable message. Unexpected handler failures stay masked remotely; inspect private `logs\audit.jsonl` and `web\server-stderr.log` for their cause.
 
 ## Disable or revoke
 

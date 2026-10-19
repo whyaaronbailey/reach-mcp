@@ -247,11 +247,13 @@ def test_native_defaults_bound_and_allow_once_does_not_persist(monkeypatch, tmp_
     asyncio.run(run())
 
 
+@pytest.mark.parametrize("policy", ["local", "client"])
 @pytest.mark.parametrize("kill_switch", ["pause", "corner"])
-def test_full_access_keeps_input_kill_switches(monkeypatch, tmp_path, kill_switch):
+def test_automatic_policies_keep_input_kill_switches(monkeypatch, tmp_path, kill_switch, policy):
     async def run():
-        gate = ApprovalGate()
-        gate.set_mode("full")
+        gate = ApprovalGate(policy=policy)
+        if policy == "local":
+            gate.set_mode("full")
         native, cfg, server = native_fixture(monkeypatch, tmp_path, gate)
         calls = []
         monkeypatch.setattr(native.winput, "move_to", lambda *args: calls.append(args))
@@ -329,9 +331,11 @@ def test_every_tool_blocks_before_desktop_access_and_cancels_cleanly(monkeypatch
     asyncio.run(run())
 
 
-def test_full_access_cannot_restore_a_disabled_tool(monkeypatch, tmp_path):
-    gate = ApprovalGate()
-    gate.set_mode("full")
+@pytest.mark.parametrize("policy", ["local", "client"])
+def test_automatic_policies_cannot_restore_a_disabled_tool(monkeypatch, tmp_path, policy):
+    gate = ApprovalGate(policy=policy)
+    if policy == "local":
+        gate.set_mode("full")
     native, cfg, _ = native_fixture(monkeypatch, tmp_path, gate)
     cfg.disabled_tools = ['reach_get_clipboard', 'reach_launch_application']
     server = native.build_server(cfg, "test", gate)
@@ -451,4 +455,94 @@ def test_cancelled_dispatch_waiter_never_runs_later_or_keeps_grant(monkeypatch, 
             await active
         await asyncio.sleep(0.05)
         assert not calls
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("policy", ["", "ask", "full", None, False, [], {}])
+def test_invalid_startup_policy_is_rejected(policy):
+    with pytest.raises(ValueError, match="policy must be local or client"):
+        ApprovalGate(policy=policy)
+
+
+def test_client_policy_never_queues_or_requires_a_local_decision():
+    async def run():
+        gate = ApprovalGate(policy="client")
+        assert gate.policy == "client"
+        for tool, arguments in TOOL_CALLS:
+            grant = await asyncio.wait_for(gate.authorize(tool, arguments, "chat"), 0.5)
+            state = gate.snapshot()
+            assert state["policy"] == state["mode"] == "client"
+            assert state["pending"] == [] and state["expires_at"] is None
+            assert not gate.decide("no-local-request", True)
+            gate.consume(grant, tool, arguments, "chat")
+            with pytest.raises(ApprovalError, match="already used"):
+                gate.consume(grant, tool, arguments, "chat")
+        gate.close()
+        assert gate.snapshot()["closed"]
+        assert gate.snapshot()["pending"] == []
+        with pytest.raises(ApprovalError, match="closed"):
+            await gate.authorize("reach_wait", {})
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("change", ["tool", "arguments", "client"])
+def test_client_policy_grants_are_bound_and_cannot_be_replayed(change):
+    async def run():
+        gate = ApprovalGate(policy="client")
+        args = {"seconds": 0, "screenshot": False}
+        grant = await gate.authorize("reach_wait", args, "chat")
+        tool, client = "reach_wait", "chat"
+        altered = dict(args)
+        if change == "tool":
+            tool = "reach_screenshot"
+        elif change == "arguments":
+            altered["seconds"] = 1
+        else:
+            client = "other"
+        with pytest.raises(ApprovalError):
+            gate.consume(grant, tool, altered, client)
+        with pytest.raises(ApprovalError):
+            gate.consume(grant, "reach_wait", args, "chat")
+    asyncio.run(run())
+
+
+def test_client_policy_grants_expire_revoke_and_close_with_bounded_capacity():
+    async def run():
+        now = [10.0]
+        gate = ApprovalGate(policy="client", max_pending=1, clock=lambda: now[0])
+        first = await gate.authorize("reach_wait", {})
+        with pytest.raises(ApprovalError, match="queue is full"):
+            await gate.authorize("reach_wait", {})
+        now[0] += 60
+        second = await gate.authorize("reach_wait", {})
+        with pytest.raises(ApprovalError):
+            gate.consume(first, "reach_wait", {})
+        gate.revoke(second)
+        third = await gate.authorize("reach_wait", {})
+        gate.close()
+        with pytest.raises(ApprovalError):
+            gate.consume(third, "reach_wait", {})
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("mode", ["ask", "low_risk", "full"])
+def test_client_policy_cannot_be_changed_from_local_controls(mode):
+    gate = ApprovalGate(policy="client")
+    with pytest.raises(ApprovalError, match="server restart"):
+        gate.set_mode(mode)
+    state = gate.snapshot()
+    assert state["policy"] == state["mode"] == "client"
+    assert not state["closed"]
+
+
+def test_client_policy_executes_authenticated_native_handler_without_local_queue(monkeypatch, tmp_path):
+    async def run():
+        gate = ApprovalGate(policy="client")
+        native, cfg, server = native_fixture(monkeypatch, tmp_path, gate)
+        monkeypatch.setattr(native.clipboard, "get_text", lambda: "synthetic result")
+        result = await asyncio.wait_for(server.functions["reach_get_clipboard"](), 1)
+        assert result == "synthetic result"
+        assert gate.snapshot()["pending"] == []
+        rows = [json.loads(row) for row in cfg.audit.path.read_text().splitlines()]
+        assert len(rows) == 1 and rows[0]["ok"] is True
     asyncio.run(run())

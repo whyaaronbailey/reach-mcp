@@ -51,6 +51,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--host", help="HTTP bind address (loopback only)")
     parser.add_argument("--port", type=int, help="HTTP port")
     parser.add_argument("--client", default="", help="label recorded in the audit log, e.g. 'codex'")
+    parser.add_argument("--approval-policy", choices=("local", "client"), default="local",
+                        help="Approval authority: local owner panel (default), or connected client permissions")
     parser.add_argument("--control-port", type=int, help="Loopback owner control port (HTTP: 8766; stdio: automatic)")
     parser.add_argument("--control-state-dir", type=Path, help="Private directory for the local owner capability file")
     args = parser.parse_args(argv)
@@ -81,7 +83,7 @@ def main(argv: list[str] | None = None) -> None:
     from .audit import AuditLog
     from .control_panel import ControlPanel
 
-    gate = ApprovalGate()
+    gate = ApprovalGate(policy=args.approval_policy)
     panel = ControlPanel(
         gate, args.control_state_dir or config.PROJECT_ROOT / ".state",
         port=control_port,

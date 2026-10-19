@@ -16,6 +16,7 @@ from typing import Any, Callable
 
 import anyio
 
+POLICIES = frozenset({"local", "client"})
 MODES = frozenset({"ask", "low_risk", "full"})
 # This is an explicit rule, not an AI assessment of GUI contents.
 LOW_RISK_TOOLS = frozenset({
@@ -67,7 +68,9 @@ def _normalized(tool: str, arguments: dict, client: str) -> tuple[dict, str]:
 class ApprovalGate:
     """Thread-safe owner decisions with asynchronous, bounded tool waiting.
 
-    Every instance starts in Ask. Temporary automatic modes expire back to Ask.
+    The default local policy starts in Ask; temporary modes expire back to Ask.
+    The explicit client policy delegates consent to the connected MCP client and
+    never queues local decisions. It does not verify a client approval receipt.
     authorize() never reads the desktop. consume() is the dispatch boundary:
     a grant is consumed once immediately before the native operation starts.
     Mode changes invalidate waiting requests and grants not yet dispatched.
@@ -75,26 +78,34 @@ class ApprovalGate:
     """
 
     def __init__(
-        self, *, timeout: float = 60.0, max_pending: int = 32,
+        self, *, policy: str = "local", timeout: float = 60.0, max_pending: int = 32,
         clock: Callable[[], float] = time.monotonic,
         wall_clock: Callable[[], float] = time.time,
     ):
+        if not isinstance(policy, str) or policy not in POLICIES:
+            raise ValueError("Approval policy must be local or client.")
         if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or not 0 < timeout <= 60:
             raise ValueError("Approval timeout must be greater than 0 and at most 60 seconds.")
         if isinstance(max_pending, bool) or not isinstance(max_pending, int) or not 1 <= max_pending <= 32:
             raise ValueError("Approval queue limit must be between 1 and 32.")
+        self._policy = policy
         self._timeout = timeout
         self._max_pending = max_pending
         self._clock = clock
         self._wall_clock = wall_clock
         self._lock = threading.RLock()
-        self._mode = "ask"
+        self._mode = "client" if policy == "client" else "ask"
         self._mode_deadline: float | None = None
         self._expires_at: float | None = None
         self._generation = 0
         self._closed = False
         self._pending: dict[str, _Request] = {}
         self._grants: dict[str, tuple[str, int, float]] = {}
+
+    @property
+    def policy(self) -> str:
+        """Startup policy; changes require restarting the server."""
+        return self._policy
 
     def _invalidate_locked(self, reason: str) -> None:
         self._generation += 1
@@ -135,7 +146,7 @@ class ApprovalGate:
             self._refresh_locked()
             if self._closed:
                 raise ApprovalError("Approval controller is closed.")
-            if self._mode == "full" or (self._mode == "low_risk" and tool in LOW_RISK_TOOLS):
+            if self._policy == "client" or self._mode == "full" or (self._mode == "low_risk" and tool in LOW_RISK_TOOLS):
                 return self._grant_locked(fingerprint, self._clock() + self._timeout)
             if len(self._pending) + len(self._grants) >= self._max_pending:
                 raise ApprovalError("Approval queue is full; retry after an existing request completes.")
@@ -187,6 +198,7 @@ class ApprovalGate:
         with self._lock:
             self._refresh_locked()
             return {
+                "policy": self._policy,
                 "mode": self._mode,
                 "expires_at": self._expires_at,
                 "closed": self._closed,
@@ -214,6 +226,8 @@ class ApprovalGate:
             return True
 
     def set_mode(self, mode: str, duration: float = 900) -> None:
+        if self._policy == "client":
+            raise ApprovalError("Approvals are managed by the connected client; changing policy requires a server restart.")
         if not isinstance(mode, str) or mode not in MODES:
             raise ValueError("Mode must be ask, low_risk, or full.")
         if (
@@ -232,6 +246,6 @@ class ApprovalGate:
     def close(self) -> None:
         with self._lock:
             self._closed = True
-            self._mode = "ask"
+            self._mode = "client" if self._policy == "client" else "ask"
             self._mode_deadline = self._expires_at = None
             self._invalidate_locked("Approval controller closed; the tool was not executed.")

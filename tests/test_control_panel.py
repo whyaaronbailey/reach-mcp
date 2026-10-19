@@ -159,3 +159,31 @@ def test_acl_failure_stays_closed_and_redacts_subprocess_details(monkeypatch, tm
     if failure == "acl":
         assert "stage=apply" in str(error.value) and "Denied" in str(error.value)
     assert not list((tmp_path / "private").glob("*.url"))
+
+
+def test_client_policy_panel_reports_delegation_and_rejects_local_mode_changes(tmp_path):
+    panel = ControlPanel(ApprovalGate(policy="client"), tmp_path / "private")
+    panel.origin = "http://127.0.0.1:8766"
+    try:
+        with TestClient(panel.create_app(), base_url=panel.origin) as client:
+            headers = owner_headers(panel)
+            assert client.get("/health").json()["status"] == "ok"
+            state = client.get("/api/state", headers=headers).json()
+            assert state["policy"] == state["mode"] == "client"
+            assert state["pending"] == []
+            response = client.get("/")
+            assert "Approvals handled by connected chat client" in response.text
+            assert 'id="client-policy"' in response.text
+            assert 'id="local-modes"' in response.text
+            assert 'el("local-modes").hidden=clientPolicy' in response.text
+            assert 'el("local-pending").hidden=clientPolicy' in response.text
+            for mode in ("ask", "low_risk", "full"):
+                result = client.post("/api/mode", json={"mode": mode, "duration": 60},
+                                     headers=headers)
+                assert result.status_code == 409
+                assert "server restart" in result.json()["error"]
+            assert client.post("/api/decision", json={"id": "anything", "allow": True},
+                               headers=headers).status_code == 409
+            assert panel.gate.snapshot()["policy"] == "client"
+    finally:
+        panel.gate.close()

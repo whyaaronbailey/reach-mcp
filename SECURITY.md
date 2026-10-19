@@ -8,10 +8,12 @@ This project exposes the privileges of a Windows desktop user. A model that can 
 - The native server and approval panel listen on loopback. The native HTTP endpoint requires its own bearer token.
 - The optional public relay requires GitHub OAuth and exactly one immutable numeric owner ID. OAuth authenticates the owner; it does not prove approval for each action or identify an individual chat.
 - The relay exposes only the listed desktop tools. The approval panel is never proxied.
-- Ask mode is the startup default. Temporary automatic modes expire. The low-risk mode uses a documented observation allowlist, not a semantic risk classifier.
-- Approval decisions apply to the pending call and arguments. They are not a general grant to a conversation.
+- The default `local` approval policy starts in Ask mode. Temporary automatic modes expire. The low-risk mode uses a documented observation allowlist, not a semantic risk classifier.
+- Under local policy, approval decisions apply to the pending call and arguments. They are not a general grant to a conversation.
+- Explicit `client` approval policy delegates consent to the connected MCP client and has no local queue. For chat-only consent, select the client's permission controls, such as ChatGPT's Always ask. Native MCP does not supply cryptographic proof that a human approved a call, so Reach MCP cannot verify those prompts. Only use this policy with a trusted client that enforces the permissions you intend.
+- Client policy is selected in the startup command, persists only when that command retains the option, and cannot be chosen by an MCP tool. It is separate from temporary local Full access mode. Authentication, loopback restrictions, disabled-tool rules, input kill switches, and auditing remain active under both policies.
 
-The control panel is on the same desktop the agent controls. A client with sufficient input access may be able to interact with it, read local state, or alter this application's files. Loopback tokens and file ACLs do not isolate processes running as the same Windows user. Keep approvals in a separate trusted client or management device when a stronger human-only boundary is required. Do not grant full desktop control to untrusted clients.
+The control panel is on the same desktop the agent controls. A client with sufficient input access may be able to interact with it, read local state, or alter this application's files. Loopback tokens and file ACLs do not isolate processes running as the same Windows user. Client policy permits approvals in a separate trusted chat client without visiting the controlled desktop, but enforcement of that consent belongs to the client. Do not grant full desktop control to untrusted clients.
 
 ## Private data
 
