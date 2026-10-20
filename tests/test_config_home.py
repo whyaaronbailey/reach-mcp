@@ -46,3 +46,19 @@ def test_config_paths_use_data_home(tmp_path, monkeypatch):
     assert cfg.safety.pause_file == tmp_path / "HALT"
     assert config.AuditConfig().path == tmp_path / "logs" / "audit.jsonl"
     assert config.SafetyConfig().pause_file == tmp_path / "PAUSED"
+
+def test_first_run_without_audit_creates_default_workspace(tmp_path, monkeypatch):
+    import asyncio
+    from reach_mcp import config
+    from reach_mcp.approval import ApprovalGate
+    from reach_mcp.server import build_server
+
+    state = tmp_path / "new-installed-state"
+    monkeypatch.setattr(config, "PROJECT_ROOT", state)
+    cfg = config.Config()
+    cfg.audit.enabled = False
+    cfg.execution.enabled = False
+    server = build_server(cfg, approval_gate=ApprovalGate(policy="client"))
+    result = asyncio.run(server.call_tool("reach_list_directory", {}))
+    assert state.is_dir()
+    assert not result.is_error

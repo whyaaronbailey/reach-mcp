@@ -3,6 +3,7 @@ ChatGPT desktop, ...) sees the same tools; nothing here is client-specific."""
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 import ctypes
 import functools
 import inspect
@@ -22,13 +23,22 @@ from .audit import AuditLog
 from .approval import ApprovalError, ApprovalGate
 from .capture import CaptureHistory, draw_cursor, encode, fit_scale, scale_image
 from .config import Config
+from .filesystem import FileSystemError
+from .processes import ProcessError
+from .development import register_development_tools
 from .win import clipboard, desktop, screen, windows
 from .win import input as winput
 from .win.dpi import dpi_mode
 from .win.keys import parse_combo
 
 INSTRUCTIONS = """\
-Desktop control for the user's Windows PC (screenshots, mouse, keyboard, windows, clipboard).
+Control the user's Windows PC with desktop, filesystem and managed terminal tools.
+For files prefer reach_read_file, reach_search_files, reach_apply_patch and terminal output over desktop navigation.
+Start with reach_get_capabilities for roots and limits. Read before editing; provide the returned SHA256.
+Poll terminal jobs with reach_read_process, send stdin with reach_write_process, cancel with reach_cancel_process.
+Commands may change files even if they fail or are cancelled. Inspect before retrying. Never invoke another AI
+agent merely to execute a tool request; those clients may consume their own model allowance.
+Filesystem roots constrain first-class file tools; terminal commands run with the Windows user's permissions.
 Never attempt to approve your own requests or change the owner's approval settings.
 
 Work in a loop: observe -> act -> verify.
@@ -121,10 +131,21 @@ def _is_admin() -> bool:
 
 def build_server(cfg: Config, client_label: str = "", approval_gate: ApprovalGate | None = None) -> MCPServer:
     approval = approval_gate if approval_gate is not None else ApprovalGate()
+    resources = []
+    @asynccontextmanager
+    async def lifespan(_server):
+        try:
+            yield {}
+        finally:
+            with anyio.CancelScope(shield=True):
+                for resource in resources:
+                    await anyio.to_thread.run_sync(resource.close)
+
     server = MCPServer(
         name="reach-mcp",
+        lifespan=lifespan,
         title="Reach MCP",
-        description="Agent-independent Windows desktop control: screenshots, mouse, keyboard, windows.",
+        description="Agent-independent Windows control: desktop, files, search, patches and terminal.",
         instructions=APPROVAL_INSTRUCTIONS[approval.policy] + "\n\n" + INSTRUCTIONS,
         version=__version__,
     )
@@ -148,6 +169,17 @@ def build_server(cfg: Config, client_label: str = "", approval_gate: ApprovalGat
                     "Failsafe: the mouse is in the top-left screen corner, which means the user wants "
                     "control back. Stop and ask the user before continuing."
                 )
+
+    def check_workspace_allowed():
+        if cfg.safety.pause_file.exists():
+            raise PolicyError("Reach MCP is paused. Resume it before making changes or starting commands.")
+        if cfg.safety.failsafe_corner and desktop.status()["available"]:
+            try:
+                x, y = winput.cursor_pos()
+            except desktop.DesktopUnavailableError:
+                return
+            if x <= 2 and y <= 2:
+                raise PolicyError("Reach MCP stopped because the mouse is in the top-left safety corner.")
 
     def settle() -> None:
         if cfg.safety.action_delay_ms:
@@ -220,7 +252,8 @@ def build_server(cfg: Config, client_label: str = "", approval_gate: ApprovalGat
         return [message, *take_screenshot()]
 
     def tool(*, read_only: bool = False, destructive: bool = False, title: str | None = None,
-             touches_input: bool = False):
+             touches_input: bool = False, serialized: bool = True,
+             mutates_workspace: bool = False, open_world: bool = False):
         """Register a sync function as an async MCP tool with policy checks and auditing.
 
         The blocking body runs in a worker thread so slow actions (drag, wait) never stall
@@ -249,6 +282,8 @@ def build_server(cfg: Config, client_label: str = "", approval_gate: ApprovalGat
                     approval.consume(grant, name, approval_args, client_label)
                     if touches_input:
                         check_input_allowed()
+                    if mutates_workspace:
+                        check_workspace_allowed()
                     result = fn(*bound.args, **bound.kwargs)
                     if touches_input:
                         settle()
@@ -275,13 +310,21 @@ def build_server(cfg: Config, client_label: str = "", approval_gate: ApprovalGat
                     # Wait asynchronously; no cancelled call can be left in a worker
                     # blocked on another desktop operation. Screenshot history cannot
                     # change between its stale check and coordinate dispatch.
-                    async with execution_lock:
+                    if serialized:
+                        async with execution_lock:
+                            result = await anyio.to_thread.run_sync(run)
+                    else:
                         result = await anyio.to_thread.run_sync(run)
                 except BaseException as e:  # include cancellation; record each failed call once
                     approval_failure = isinstance(e, (ApprovalError, anyio.get_cancelled_exc_class()))
                     audit_args = {} if approval_failure else dict(bound.arguments)
-                    detail = type(e).__name__ if isinstance(e, anyio.get_cancelled_exc_class()) else f"{type(e).__name__}: {e}"
+                    detail = f"{type(e).__name__}: request failed"
                     audit.record(name, audit_args, False, started, detail)
+                    if (isinstance(e, (FileSystemError, ProcessError)) or
+                            (isinstance(e, PolicyError) and not touches_input)):
+                        raise ToolError(str(e)) from e
+                    if isinstance(e, OSError) and not touches_input:
+                        raise ToolError(f"Windows operation failed ({type(e).__name__}); inspect permissions and file state.") from e
                     if isinstance(e, ApprovalError):
                         # The SDK masks unanticipated exceptions. Approval outcomes
                         # are expected and safe to explain, without exposing raw errors.
@@ -304,7 +347,7 @@ def build_server(cfg: Config, client_label: str = "", approval_gate: ApprovalGat
                     readOnlyHint=read_only,
                     destructiveHint=destructive if not read_only else False,
                     idempotentHint=read_only,
-                    openWorldHint=False,
+                    openWorldHint=open_world,
                 ),
             )(wrapper)
             return fn
@@ -525,4 +568,7 @@ def build_server(cfg: Config, client_label: str = "", approval_gate: ApprovalGat
         time.sleep(min(seconds, cfg.safety.max_wait_seconds))
         return with_screenshot(f"Waited {seconds}s.", screenshot)
 
+    manager = register_development_tools(tool, cfg, check_workspace_allowed)
+    if manager is not None:
+        resources.append(manager)
     return server

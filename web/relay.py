@@ -1,6 +1,6 @@
 """Reach MCP: an owner-only GitHub OAuth relay for remote chat clients.
 
-Only the explicit desktop tool allowlist is proxied. The native server and
+Only the explicit desktop/developer tool allowlist is proxied. The native server and
 relay both listen on loopback; only the authenticated relay may be published.
 Native approval, audit and kill switches remain in force.
 """
@@ -36,12 +36,32 @@ EXPOSED_TOOLS = frozenset({
     'reach_get_screen_info', 'reach_screenshot', 'reach_list_windows', 'reach_get_cursor_position',
     'reach_get_clipboard', 'reach_wait', 'reach_focus_window', 'reach_move_mouse', 'reach_click', 'reach_drag',
     'reach_scroll', 'reach_type_text', 'reach_press_keys', 'reach_set_clipboard', 'reach_launch_application',
+    'reach_get_capabilities',
+    'reach_list_directory',
+    'reach_read_file',
+    'reach_search_files',
+    'reach_write_file',
+    'reach_replace_text',
+    'reach_apply_patch',
+    'reach_make_directory',
+    'reach_move_file',
+    'reach_remove_file',
+    'reach_run_command',
+    'reach_read_process',
+    'reach_write_process',
+    'reach_cancel_process',
+    'reach_list_processes',
 })
 # server/discover is the modern-MCP handshake (successor to initialize; metadata only).
 METHODS = frozenset({"initialize", "server/discover", "notifications/initialized", "ping",
                      "tools/list", "tools/call"})
 RELAY_INSTRUCTIONS = (
-    "Control the authenticated owner's Windows desktop using observe, act, verify. "
+    "Control the authenticated owner's Windows desktop, files and terminal. "
+    "For code, prefer direct file/search/patch and terminal tools; call reach_get_capabilities for limits. "
+    "Read files before edits and supply their SHA256. Poll/cancel managed commands as needed. "
+    "Never invoke Codex or another AI CLI merely to execute Reach tools. "
+    "Terminal commands have the Windows user's file/network access; file roots do not sandbox them. "
+    "Observe, act, verify. "
     "Follow the connected client's permission controls. reach_get_screen_info reports "
     "approval_policy and desktop availability. Under client policy no VM-local approval "
     "is required. Request local approval only if the server explicitly reports a local "

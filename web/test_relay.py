@@ -52,6 +52,24 @@ async def proxy_checks(config):
         results.append(check("screenshot state persists across proxied calls",
                              last.get("image_width") == 600 or last.get("image_height") == 600,
                              f"last={last.get('image_width')}x{last.get('image_height')}"))
+        capabilities = json.loads((await c.call_tool("reach_get_capabilities", {})).content[0].text)
+        results.append(check("developer capabilities proxy works",
+                             capabilities["execution"]["enabled"] and capabilities["filesystem"]["enabled"]))
+        listing = json.loads((await c.call_tool("reach_list_directory", {"path": "."})).content[0].text)
+        results.append(check("direct directory tool proxies structured output", isinstance(listing, dict)))
+        command = json.loads((await c.call_tool("reach_run_command", {
+            "command": "echo reach-relay-command-ok", "shell": "cmd", "wait_seconds": 2
+        })).content[0].text)
+        for _ in range(10):
+            if command["output_complete"]:
+                break
+            await asyncio.sleep(.1)
+            command = json.loads((await c.call_tool("reach_read_process", {
+                "job_id": command["job_id"], "wait_seconds": 1
+            })).content[0].text)
+        results.append(check("managed command output/exit code proxy works",
+                             command["output_complete"] and command["exit_code"] == 0
+                             and "reach-relay-command-ok" in command["stdout"]))
     return all(results)
 
 
@@ -128,6 +146,10 @@ def auth_checks(config):
                               "params": {"name": "run_shell", "arguments": {}}}).encode()
         s, _ = post("/mcp", badtool)
         results.append(check("unknown tool -> 403 before auth", s == 403, str(s)))
+        newtool = json.dumps({"jsonrpc": "2.0", "id": 31, "method": "tools/call",
+                              "params": {"name": "reach_run_command", "arguments": {"command": "echo never"}}}).encode()
+        s, _ = post("/mcp", newtool)
+        results.append(check("new terminal tool without auth -> 401", s == 401, str(s)))
         s, _ = post("/mcp", b"[{}]")
         results.append(check("JSON batch -> 400", s == 400, str(s)))
         click = json.dumps({"jsonrpc": "2.0", "id": 4, "method": "tools/call",

@@ -83,12 +83,12 @@ def main() -> int:
                 else:
                     raise RuntimeError("Isolated native test server did not start.")
 
-                # This test explicitly authorizes only its own observation calls.
+                # This isolated child explicitly authorizes its own desktop/developer test calls.
                 # It uses the same owner API as the panel, not a server bypass.
-                select_test_mode(state_dir, "low_risk", 300)
+                select_test_mode(state_dir, "full", 300)
                 relay_env = env.copy()
                 relay_env.pop("REACH_MCP_TOKEN", None)
-                print("Native ready; temporary observation approval set.", flush=True)
+                print("Native ready; temporary isolated-test approval set.", flush=True)
                 relay_test = subprocess.Popen(
                     [
                         str(ROOT / "web/.venv/Scripts/python.exe"), "-u",

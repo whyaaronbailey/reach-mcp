@@ -8,8 +8,8 @@ jpeg_quality = 80
 draw_cursor = true       # GDI capture omits the real cursor; draw a crosshair where it is
 
 [safety]
-failsafe_corner = true   # input tools refuse while the mouse sits in the top-left corner
-pause_file = "PAUSED"    # while this file exists, input tools refuse (scripts/pause.ps1)
+failsafe_corner = true   # input/file mutations and command starts refuse; managed jobs stop while the mouse sits in the top-left corner
+pause_file = "PAUSED"    # while this file exists, input/file mutations and command starts refuse; managed jobs stop (scripts/pause.ps1)
 action_delay_ms = 80     # settle time after each input action
 max_type_chars = 500     # paced Unicode input; use clipboard paste for larger text
 max_wait_seconds = 30
@@ -18,10 +18,28 @@ max_wait_seconds = 30
 enabled = true
 allowed = []             # e.g. ["notepad.exe", "calc.exe"]; empty = any program, file or URL
 
+[filesystem]
+enabled = true
+workspace = "."         # relative paths used by file tools and terminal cwd
+# Defaults: project/state folder and current user's home. Configure explicit local roots:
+# allowed_roots = ["C:/Projects", "%USERPROFILE%"]
+max_file_bytes = 2000000
+max_results = 200
+
+[execution]
+enabled = true
+max_jobs = 4
+max_history = 32
+max_output_bytes = 1048576
+max_runtime_seconds = 3600
+max_stdin_chars = 65536
+# Arbitrary commands run as the current Windows user, not in a file-root sandbox.
+# PAUSED/corner stop all managed process trees. stdout/stderr are never audit logged.
+
 [audit]
 enabled = true
 path = "logs/audit.jsonl"
-log_typed_text = false   # false: typed/clipboard text is logged as length + sha256 prefix only
+log_typed_text = false   # typed/clipboard logging only; developer payloads are always redacted
 
 [http]
 host = "127.0.0.1"       # loopback only; non-loopback addresses are refused

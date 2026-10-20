@@ -2,7 +2,7 @@
 
 **PC control for ChatGPT and Claude chats**
 
-An open-source Windows desktop-control server for MCP clients. It provides screenshots, mouse and keyboard input, window focus, clipboard access, and application launch through stdio or authenticated loopback HTTP. An optional GitHub OAuth relay connects remote clients such as ordinary ChatGPT Chat. ChatGPT has been tested end to end; the Claude Chat OAuth callback is supported but has not yet been verified in a live Claude Chat session.
+An open-source Windows control server for MCP clients. Its 30 tools combine screenshots, mouse and keyboard input with direct file access, code search, exact patches, and managed terminal jobs through stdio or authenticated loopback HTTP. An optional GitHub OAuth relay connects remote clients such as ordinary ChatGPT Chat. ChatGPT has been tested end to end; the Claude Chat OAuth callback is supported but has not yet been verified in a live Claude Chat session.
 
 The server is designed for a dedicated Windows VM. Desktop control runs with the logged-in user's privileges; it is not a sandbox.
 
@@ -96,14 +96,54 @@ Unicode input uses conservative pacing for Windows text controls and checks inpu
 
 UI Automation element snapshots and actions are **not implemented**. The current tool surface uses screenshots and Windows input APIs. The proposed UIA-first/screenshot-fallback design remains a roadmap item.
 
+## Files and terminal
+
+Call `reach_get_capabilities` for this installation's workspace, local roots and limits.
+The default file roots are the project/state folder and current user's home.
+
+| Tools | Purpose |
+| --- | --- |
+| `reach_list_directory`, `reach_search_files` | Bounded directory, filename and literal text search |
+| `reach_read_file` | Text, line pagination and full-file SHA256 |
+| `reach_write_file`, `reach_replace_text`, `reach_apply_patch` | Create text, exact replacements or unified diffs |
+| `reach_make_directory`, `reach_move_file`, `reach_remove_file` | Directories, moves and non-recursive deletion |
+| `reach_run_command` | PowerShell, cmd or exact argv; cwd, output and exit code |
+| `reach_read_process`, `reach_write_process` | Poll output/status and send stdin |
+| `reach_list_processes`, `reach_cancel_process` | Inspect retained jobs and stop a process tree |
+
+Read an existing file first, then pass its SHA256 to edits, moves and deletion.
+Changed files are rejected instead of overwritten. New files require `create: true`.
+UTF-8 and BOM-marked UTF-16 are supported. Replacements and patches preserve BOM/newlines.
+Patches use standard unified `---`, `+++` and `@@` headers,
+with an `expected_sha256` path-to-hash map (null for new files).
+Multi-file patches validate all hunks and attempt rollback on I/O failure; they
+are not an OS-level transaction. Recursive deletion, shares, device paths,
+symlinks and junctions are refused by the file tools.
+
+For commands, specify `cwd` and optionally `shell: "program"` with an argv array.
+Save `job_id`, poll using `next_cursor`, and inspect `exit_code`,
+`output_complete`, `has_more` and truncation flags.
+Jobs have runtime, count and retained-output limits. Commands and descendants are
+terminated on cancellation, timeout, pause, server shutdown or parent exit.
+Failed or cancelled commands can leave file changes; inspect before retrying.
+
+Commands run as the normal Windows user and can access that user's files and
+network beyond the first-class file roots: this is **not a shell sandbox**.
+Credential-like environment variables are removed from children; credential files
+remain subject to Windows account permissions. File/terminal tools work while
+Windows is locked; desktop input and screenshots still need an interactive session.
+
+Reach does not call an AI model to execute these tools. See [Usage audit](docs/usage.md)
+for Chat versus Work/Codex accounting and an isolated verification procedure.
+
 ## Safety and configuration
 
 Copy `config.example.toml` to `config.toml` to change limits, disable tools, or restrict application launch.
 
 A source checkout keeps configuration, audit logs, pause state, and private panel state in the project directory. An installed wheel uses `%LOCALAPPDATA%\ReachMCP` instead. Set `REACH_MCP_HOME` before starting the server to choose a different writable private directory. Relative configuration paths resolve from that directory.
 
-- Move the mouse to the top-left corner or run `scripts\pause.ps1` to block input. Run `scripts\resume.ps1` to remove the file-based pause. These input kill switches do not block reads.
-- `logs\audit.jsonl` records tool calls. Typed and clipboard text arguments are redacted by default.
+- Move the mouse to the top-left corner or run `scripts\pause.ps1` to block desktop input, file mutations and new commands, and stop active managed jobs. Run `scripts\resume.ps1` to remove the file-based pause. These input kill switches do not block reads.
+- `logs\audit.jsonl` records tool calls. Typed and clipboard text arguments are redacted by default. Developer payloads, paths, commands and stdin are always redacted; file contents and command output are never audit logged. Each call has a unique event ID.
 - Native HTTP binds only to loopback and requires a bearer token. Never expose that listener directly.
 - The OAuth relay admits exactly one configured immutable GitHub user ID and exposes a fixed tool allowlist.
 - Run without elevation. UAC, the lock screen, and higher-integrity windows are outside the supported desktop.

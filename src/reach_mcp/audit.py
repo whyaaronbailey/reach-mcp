@@ -7,11 +7,22 @@ import json
 import os
 import threading
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 # Argument names whose values may contain secrets the user typed or copied.
 TEXT_ARGS = {"text", "arguments", "target"}
+# Developer tools never store payloads, even when legacy typed-text logging is on.
+PRIVATE_ARGS = {"content", "patch", "old", "new", "command", "stdin", "env",
+                "path", "source", "destination", "cwd", "query", "glob",
+                "expected_sha256", "allowed_roots", "workspace"}
+
+def private_summary(value):
+    encoded = json.dumps(value, ensure_ascii=False, default=str).encode("utf-8")
+    length = len(value) if isinstance(value, (str, list, dict)) else len(encoded)
+    return {"chars": length, "sha256": hashlib.sha256(encoded).hexdigest()[:16]}
+
 
 
 class AuditLog:
@@ -25,23 +36,32 @@ class AuditLog:
             path.parent.mkdir(parents=True, exist_ok=True)
 
     def _sanitize(self, args: dict) -> dict:
-        out = {}
-        for k, v in args.items():
-            if k in TEXT_ARGS and isinstance(v, str) and not self.log_text:
-                out[k] = {"chars": len(v), "sha256": hashlib.sha256(v.encode()).hexdigest()[:16]}
-            else:
-                out[k] = v
-        return out
+        def clean(value, key=""):
+            if key.lower() in PRIVATE_ARGS or any(part in key.lower() for part in
+                    ("secret", "password", "token", "authorization", "cookie")):
+                return private_summary(value)
+            if key in TEXT_ARGS and not self.log_text:
+                return private_summary(value)
+            if isinstance(value, dict):
+                return {k: clean(v, str(k)) for k, v in value.items()}
+            if isinstance(value, list):
+                return [clean(v) for v in value]
+            return value
+        return clean(args)
 
     def record(self, tool: str, args: dict, ok: bool, started: float, detail: str = "") -> None:
         if not self.enabled:
             return
+        sanitized = self._sanitize(args)
+        if tool == "reach_write_process" and "text" in args:
+            sanitized["text"] = private_summary(args["text"])
         entry = {
+            "event_id": uuid.uuid4().hex,
             "ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
             "pid": os.getpid(),
             "client": self.client,
             "tool": tool,
-            "args": self._sanitize(args),
+            "args": sanitized,
             "ok": ok,
             "ms": round((time.monotonic() - started) * 1000),
         }

@@ -209,6 +209,8 @@ def native_fixture(monkeypatch, tmp_path, gate):
     })
     cfg = Config()
     cfg.audit.path = tmp_path / "audit.jsonl"
+    cfg.filesystem.workspace = tmp_path
+    cfg.filesystem.allowed_roots = [tmp_path]
     cfg.safety.pause_file = tmp_path / "PAUSED"
     cfg.safety.action_delay_ms = 0
     return native, cfg, native.build_server(cfg, "test", gate)
@@ -297,6 +299,24 @@ TOOL_CALLS = [
     ('reach_press_keys', {"keys": "enter"}),
     ('reach_set_clipboard', {"text": "approval test secret"}),
     ('reach_launch_application', {"target": "notepad.exe"}),
+    ('reach_get_capabilities', {}),
+    ('reach_list_directory', {}),
+    ('reach_read_file', {"path": "approval test secret.txt"}),
+    ('reach_search_files', {"query": "approval test secret"}),
+    ('reach_write_file', {"path": "new.txt", "content": "approval test secret", "create": True}),
+    ('reach_replace_text', {"path": "file.txt", "old": "before", "new": "approval test secret",
+                            "expected_sha256": "0" * 64}),
+    ('reach_apply_patch', {"patch": "--- /dev/null\n+++ b/new.txt\n@@ -0,0 +1 @@\n+test\n",
+                           "expected_sha256": {"new.txt": None}}),
+    ('reach_make_directory', {"path": "new"}),
+    ('reach_move_file', {"source": "file.txt", "destination": "new.txt",
+                         "expected_sha256": "0" * 64}),
+    ('reach_remove_file', {"path": "file.txt", "expected_sha256": "0" * 64}),
+    ('reach_run_command', {"command": "Write-Output 'approval test secret'"}),
+    ('reach_read_process', {"job_id": "not-authorized"}),
+    ('reach_write_process', {"job_id": "not-authorized", "text": "approval test secret"}),
+    ('reach_cancel_process', {"job_id": "not-authorized"}),
+    ('reach_list_processes', {}),
 ]
 
 
@@ -320,6 +340,13 @@ def test_every_tool_blocks_before_desktop_access_and_cancels_cleanly(monkeypatch
                 if inspect.isfunction(value) and value.__module__ == module.__name__:
                     monkeypatch.setattr(module, name, forbidden)
         monkeypatch.setattr(native.os, "startfile", forbidden)
+        from reach_mcp.filesystem import FileSystem
+        from reach_mcp.processes import ProcessManager
+        for name in ("list_directory", "read_text", "search", "write_text", "replace_text",
+                     "apply_patch", "make_directory", "move", "remove", "resolve_path"):
+            monkeypatch.setattr(FileSystem, name, forbidden)
+        for name in ("start", "read", "write_stdin", "cancel", "list_jobs"):
+            monkeypatch.setattr(ProcessManager, name, forbidden)
         task = asyncio.create_task(server.functions[tool](**arguments))
         request = await pending(gate)
         assert not task.done() and not calls
@@ -344,7 +371,7 @@ def test_automatic_policies_cannot_restore_a_disabled_tool(monkeypatch, tmp_path
     server = native.build_server(cfg, "test", gate)
     assert 'reach_get_clipboard' not in server.functions
     assert 'reach_launch_application' not in server.functions
-    assert len(server.functions) == 13
+    assert set(server.functions) == {name for name, _ in TOOL_CALLS} - set(cfg.disabled_tools)
 
 
 def test_auto_grants_share_bounded_capacity_and_free_after_dispatch():

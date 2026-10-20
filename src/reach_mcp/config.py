@@ -74,12 +74,33 @@ class HttpConfig:
 
 
 @dataclass
+class FilesystemConfig:
+    enabled: bool = True
+    workspace: Path = field(default_factory=lambda: PROJECT_ROOT)
+    allowed_roots: list[Path] = field(default_factory=lambda: [PROJECT_ROOT, Path.home()])
+    max_file_bytes: int = 2_000_000
+    max_results: int = 200
+
+
+@dataclass
+class ExecutionConfig:
+    enabled: bool = True
+    max_jobs: int = 4
+    max_history: int = 32
+    max_output_bytes: int = 1_048_576
+    max_runtime_seconds: int = 3600
+    max_stdin_chars: int = 65536
+
+
+@dataclass
 class Config:
     screenshot: ScreenshotConfig = field(default_factory=ScreenshotConfig)
     safety: SafetyConfig = field(default_factory=SafetyConfig)
     launch: LaunchConfig = field(default_factory=LaunchConfig)
     audit: AuditConfig = field(default_factory=AuditConfig)
     http: HttpConfig = field(default_factory=HttpConfig)
+    filesystem: FilesystemConfig = field(default_factory=FilesystemConfig)
+    execution: ExecutionConfig = field(default_factory=ExecutionConfig)
     disabled_tools: list[str] = field(default_factory=list)
     source: Path | None = None
 
@@ -96,6 +117,10 @@ def _apply(obj, table: dict, section: str) -> None:
         current = getattr(obj, key)
         if isinstance(current, Path):
             value = _resolve(value)
+        if section == "filesystem" and key == "allowed_roots":
+            if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+                raise ValueError("[filesystem].allowed_roots must be an array of paths")
+            value = [_resolve(v) for v in value]
         setattr(obj, key, value)
 
 
@@ -115,6 +140,8 @@ def load(path: str | Path | None = None) -> Config:
         "launch": cfg.launch,
         "audit": cfg.audit,
         "http": cfg.http,
+        "filesystem": cfg.filesystem,
+        "execution": cfg.execution,
     }
     for name, table in data.items():
         if name == "tools":
@@ -125,5 +152,21 @@ def load(path: str | Path | None = None) -> Config:
             raise ValueError(f"unknown config section [{name}]")
     if cfg.screenshot.format not in ("png", "jpeg"):
         raise ValueError("[screenshot].format must be 'png' or 'jpeg'")
+    for section, obj, limits in [
+        ("filesystem", cfg.filesystem, {"max_file_bytes": (1024, 20_000_000), "max_results": (1, 1000)}),
+        ("execution", cfg.execution, {"max_jobs": (1, 16), "max_history": (1, 256),
+         "max_output_bytes": (1024, 16_777_216), "max_runtime_seconds": (1, 86400),
+         "max_stdin_chars": (1, 1_048_576)}),
+    ]:
+        if type(obj.enabled) is not bool:
+            raise ValueError(f"[{section}].enabled must be a boolean")
+        for key, (low, high) in limits.items():
+            value = getattr(obj, key)
+            if type(value) is not int or not low <= value <= high:
+                raise ValueError(f"[{section}].{key} is outside its supported limits")
+    if cfg.execution.max_history < cfg.execution.max_jobs:
+        raise ValueError("[execution].max_history must be at least max_jobs")
+    if not cfg.filesystem.allowed_roots:
+        raise ValueError("[filesystem].allowed_roots must not be empty")
     cfg.source = cfg_path
     return cfg

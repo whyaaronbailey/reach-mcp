@@ -1,6 +1,6 @@
 # Remote OAuth relay
 
-The optional relay exposes the desktop tools to remote MCP clients, including ordinary ChatGPT Chat. It uses GitHub OAuth with one configured immutable numeric owner ID and forwards requests to the bearer-protected native server. Both processes listen only on loopback.
+The optional relay exposes the desktop, file and terminal tools to remote MCP clients, including ordinary ChatGPT Chat. It uses GitHub OAuth with one configured immutable numeric owner ID and forwards requests to the bearer-protected native server. Both processes listen only on loopback.
 
 The public endpoint is `https://<your-public-host>/mcp`. Never publish the native server or the approval panel.
 
@@ -75,7 +75,7 @@ Run the isolated integration test deliberately from a non-elevated interactive d
 .\.venv\Scripts\python.exe web\check-local.py
 ~~~
 
-The wrapper creates fresh dummy credentials, a temporary native listener on port 18765, and an ephemeral local approval panel. It explicitly selects low-risk mode for its own observation calls through the normal owner API, then runs the relay tests on port 8899. It does not read production credentials or change the running deployment. Its Windows job removes test child processes and their descendants on exit. The test reads screen information and captures a screenshot.
+The wrapper creates fresh dummy credentials, a temporary native listener on port 18765, and an ephemeral local approval panel. It explicitly selects temporary Full access only on its isolated test server for its own desktop/developer calls through the normal owner API, then runs the relay tests on port 8899. It does not read production credentials or change the running deployment. Its Windows job removes test child processes and their descendants on exit. The test reads screen information, captures a screenshot, lists a directory, and runs an echo command on the isolated child.
 
 To test a specific already-running native server, run the relay environment's Python with `web/test_relay.py --config <local-json-path>`. A server using local policy still needs its own local approvals; client policy has no local approval queue. Dummy-credential checks do not prove a real GitHub login or external connectivity.
 
@@ -97,7 +97,7 @@ If you want startup at login, register an interactive, non-elevated scheduled ta
 
 In ChatGPT, add a custom MCP server with the public `/mcp` URL and OAuth authentication. Complete GitHub sign-in as the configured owner. In the plugin's permissions, select **Always ask** for prompts before reads and changes. Run the server with `-ApprovalPolicy client` for approvals only in the chat. Product labels and availability can change.
 
-Under local policy, a client approval and a native-server approval are separate checks. Under client policy, consent is delegated to the client. OAuth proves the owner identity; it is not a per-action consent grant. An ordinary Chat connection does not establish or guarantee any provider's billing or usage accounting.
+Under local policy, a client approval and a native-server approval are separate checks. Under client policy, consent is delegated to the client. OAuth proves the owner identity; it is not a per-action consent grant. OpenAI documents ordinary Chat allowances separately from Work/Codex; Reach does not make model calls. Verify the actual client surface and isolated usage readings using [the usage audit](../docs/usage.md). A connection alone does not prove billing attribution.
 
 ## A tool is discovered but its call fails after a minute
 
@@ -154,3 +154,26 @@ Stop-ScheduledTask -TaskName 'Reach MCP Web Relay'
 Verify the native and relay listeners have closed. Persistent Funnel configuration is independent of process lifetime. Power off or firewall the VM for a separate boundary. Revoke OAuth authorization and rotate credentials when appropriate.
 
 Private deployment history and evidence are kept under ignored `local-deployment\` and `logs\`, never in the public documentation.
+
+## Upgrading to the developer tool set
+
+Version 0.3.0 explicitly allowlists 30 tools. Restart both native server and relay
+after updating, then refresh the client's Reach tool catalog. Existing OAuth owner
+authentication and the selected approval policy remain required. Review permissions
+for the new write/delete/command tools in the client; under client policy no local
+VM prompt is added.
+
+Call reach_get_capabilities to inspect roots and limits, then test a disposable
+file and a read-only terminal command. The default local file roots are the project
+folder and current user's home. Configure filesystem and execution in config.toml;
+setting enabled=false hides the corresponding tool group.
+
+The terminal runs as the normal server user with file/network access, beyond the
+first-class file roots. PAUSED/corner stop active managed commands and block new
+mutations, while read/status/cancel calls remain available. To disable the expanded
+capabilities, disable both config sections and restart. To remove all remote access,
+stop the runner/task and turn off this VM's Funnel as described below.
+
+Do not retain an older computer's public endpoint after migrating a deployment.
+Turn off its previous Funnel route and disable its old relay startup task locally.
+Machine-specific commands and evidence belong in ignored local deployment records.
