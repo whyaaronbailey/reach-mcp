@@ -1,0 +1,10 @@
+# Synthetic mount contract fixture; not a deployment configuration.
+services:
+  edge:
+    image: reach-gateway:example-only
+    volumes:
+      - /var/lib/reach/reach-gateway/runtime/secrets:/run/secrets:ro
+      - /var/lib/reach/reach-gateway/runtime/config:/run/config:ro
+      - /var/lib/reach/reach-gateway/tls:/run/tls:ro
+      - /var/lib/reach/reach-gateway/runtime/state:/state:rw
+      - /run/reach-owner-mcp:/run/reach-owner-mcp:ro

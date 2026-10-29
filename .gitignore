@@ -5,6 +5,8 @@
 **/secrets/
 .state/
 local-deployment/
+gateway/local/
+gateway/.venv/
 logs/
 backups/
 PAUSED
@@ -17,6 +19,7 @@ config.toml
 *.p12
 # Python environments and generated output
 .venv/
+.gateway-venv/
 venv/
 __pycache__/
 *.py[cod]

@@ -2,6 +2,14 @@
 
 **PC control for ChatGPT and Claude chats**
 
+This repository also includes the newer [central gateway and owner-approval
+source](gateway/README.md), its [architecture](docs/architecture.md), and a
+[macOS companion plan](docs/macos-port.md). The gateway source uses synthetic
+deployment examples and requires installation-specific configuration and
+enrollment. macOS support is planned; a Mac companion is not yet implemented.
+
+The standalone Windows package described below remains version 0.3.0.
+
 An open-source Windows control server for MCP clients. Its 30 tools combine screenshots, mouse and keyboard input with direct file access, code search, exact patches, and managed terminal jobs through stdio or authenticated loopback HTTP. An optional GitHub OAuth relay connects remote clients such as ordinary ChatGPT Chat. ChatGPT has been tested end to end; the Claude Chat OAuth callback is supported but has not yet been verified in a live Claude Chat session.
 
 The server is designed for a dedicated Windows VM. Desktop control runs with the logged-in user's privileges; it is not a sandbox.

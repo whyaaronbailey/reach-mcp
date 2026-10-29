@@ -1,0 +1,1344 @@
+{
+  "cacheScope": "private",
+  "resultType": "complete",
+  "tools": [
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "Screen info"
+      },
+      "description": "Monitors, virtual desktop bounds, cursor position, foreground window, last screenshot and safety state.",
+      "inputSchema": {
+        "properties": {},
+        "title": "reach_get_screen_infoArguments",
+        "type": "object"
+      },
+      "name": "reach_get_screen_info",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "reach_get_screen_infoOutput",
+        "type": "object"
+      },
+      "title": "Screen info"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "Screenshot"
+      },
+      "description": "Capture the screen (or a monitor, window or region). Subsequent x/y arguments refer to this image.",
+      "inputSchema": {
+        "properties": {
+          "hwnd": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Capture just this window (from reach_list_windows). It should be in front: call reach_focus_window first.",
+            "title": "Hwnd"
+          },
+          "max_long_edge": {
+            "anyOf": [
+              {
+                "maximum": 4096,
+                "minimum": 200,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Downscale so the longer side is at most this many pixels.",
+            "title": "Max Long Edge"
+          },
+          "monitor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Monitor index from reach_get_screen_info; 0 = all monitors. Default: primary (or the last one captured).",
+            "title": "Monitor"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "[left, top, width, height] in physical screen pixels.",
+            "title": "Region"
+          }
+        },
+        "title": "reach_screenshotArguments",
+        "type": "object"
+      },
+      "name": "reach_screenshot",
+      "title": "Screenshot"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "List windows"
+      },
+      "description": "Visible top-level windows in Z-order (front first), with hwnd, title, process and screen rect.",
+      "inputSchema": {
+        "properties": {
+          "process": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Process name filter, e.g. 'notepad.exe'.",
+            "title": "Process"
+          },
+          "title_contains": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Case-insensitive title filter.",
+            "title": "Title Contains"
+          }
+        },
+        "title": "reach_list_windowsArguments",
+        "type": "object"
+      },
+      "name": "reach_list_windows",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "reach_list_windowsOutput",
+        "type": "object"
+      },
+      "title": "List windows"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "Cursor position"
+      },
+      "description": "Current mouse position in screen pixels and, if inside it, in the last screenshot's space.",
+      "inputSchema": {
+        "properties": {},
+        "title": "reach_get_cursor_positionArguments",
+        "type": "object"
+      },
+      "name": "reach_get_cursor_position",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "reach_get_cursor_positionOutput",
+        "type": "object"
+      },
+      "title": "Cursor position"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "Read clipboard"
+      },
+      "description": "Text currently on the clipboard (empty string if none).",
+      "inputSchema": {
+        "properties": {},
+        "title": "reach_get_clipboardArguments",
+        "type": "object"
+      },
+      "name": "reach_get_clipboard",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "reach_get_clipboardOutput",
+        "type": "object"
+      },
+      "title": "Read clipboard"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Focus window"
+      },
+      "description": "Restore (if minimized) and bring a window to the foreground.",
+      "inputSchema": {
+        "properties": {
+          "hwnd": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Window handle from reach_list_windows.",
+            "title": "Hwnd"
+          },
+          "screenshot": {
+            "default": false,
+            "description": "Also return a fresh screenshot after the action.",
+            "title": "Screenshot",
+            "type": "boolean"
+          },
+          "title_contains": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Or: first window whose title contains this.",
+            "title": "Title Contains"
+          }
+        },
+        "title": "reach_focus_windowArguments",
+        "type": "object"
+      },
+      "name": "reach_focus_window",
+      "title": "Focus window"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Move mouse"
+      },
+      "description": "Move the mouse pointer (hover) without clicking.",
+      "inputSchema": {
+        "properties": {
+          "coordinate_space": {
+            "default": "screenshot",
+            "enum": [
+              "screenshot",
+              "screen"
+            ],
+            "title": "Coordinate Space",
+            "type": "string"
+          },
+          "screenshot": {
+            "default": false,
+            "description": "Also return a fresh screenshot after the action.",
+            "title": "Screenshot",
+            "type": "boolean"
+          },
+          "x": {
+            "description": "X in the coordinate space (default: last screenshot image).",
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "description": "Y in the coordinate space (default: last screenshot image).",
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "reach_move_mouseArguments",
+        "type": "object"
+      },
+      "name": "reach_move_mouse",
+      "title": "Move mouse"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Click"
+      },
+      "description": "Click a mouse button, optionally at a position and with modifier keys held.",
+      "inputSchema": {
+        "properties": {
+          "button": {
+            "default": "left",
+            "enum": [
+              "left",
+              "right",
+              "middle"
+            ],
+            "title": "Button",
+            "type": "string"
+          },
+          "clicks": {
+            "default": 1,
+            "description": "2 = double-click, 3 = triple-click.",
+            "maximum": 3,
+            "minimum": 1,
+            "title": "Clicks",
+            "type": "integer"
+          },
+          "coordinate_space": {
+            "default": "screenshot",
+            "enum": [
+              "screenshot",
+              "screen"
+            ],
+            "title": "Coordinate Space",
+            "type": "string"
+          },
+          "modifiers": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Keys held during the click, e.g. 'ctrl' or 'ctrl+shift'.",
+            "title": "Modifiers"
+          },
+          "screenshot": {
+            "default": false,
+            "description": "Also return a fresh screenshot after the action.",
+            "title": "Screenshot",
+            "type": "boolean"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "X (omit to click at the current pointer position).",
+            "title": "X"
+          },
+          "y": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Y (omit to click at the current pointer position).",
+            "title": "Y"
+          }
+        },
+        "title": "reach_clickArguments",
+        "type": "object"
+      },
+      "name": "reach_click",
+      "title": "Click"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Drag"
+      },
+      "description": "Press at the start point, move smoothly to the end point and release.",
+      "inputSchema": {
+        "properties": {
+          "button": {
+            "default": "left",
+            "enum": [
+              "left",
+              "right",
+              "middle"
+            ],
+            "title": "Button",
+            "type": "string"
+          },
+          "coordinate_space": {
+            "default": "screenshot",
+            "enum": [
+              "screenshot",
+              "screen"
+            ],
+            "title": "Coordinate Space",
+            "type": "string"
+          },
+          "duration_ms": {
+            "default": 400,
+            "maximum": 5000,
+            "minimum": 50,
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "end_x": {
+            "description": "X in the coordinate space (default: last screenshot image).",
+            "title": "End X",
+            "type": "number"
+          },
+          "end_y": {
+            "description": "Y in the coordinate space (default: last screenshot image).",
+            "title": "End Y",
+            "type": "number"
+          },
+          "screenshot": {
+            "default": false,
+            "description": "Also return a fresh screenshot after the action.",
+            "title": "Screenshot",
+            "type": "boolean"
+          },
+          "start_x": {
+            "description": "X in the coordinate space (default: last screenshot image).",
+            "title": "Start X",
+            "type": "number"
+          },
+          "start_y": {
+            "description": "Y in the coordinate space (default: last screenshot image).",
+            "title": "Start Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "start_x",
+          "start_y",
+          "end_x",
+          "end_y"
+        ],
+        "title": "reach_dragArguments",
+        "type": "object"
+      },
+      "name": "reach_drag",
+      "title": "Drag"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Scroll"
+      },
+      "description": "Scroll the mouse wheel over a point.",
+      "inputSchema": {
+        "properties": {
+          "amount": {
+            "default": 3,
+            "description": "Wheel notches (about 3 lines each).",
+            "maximum": 50,
+            "minimum": 1,
+            "title": "Amount",
+            "type": "integer"
+          },
+          "coordinate_space": {
+            "default": "screenshot",
+            "enum": [
+              "screenshot",
+              "screen"
+            ],
+            "title": "Coordinate Space",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "up",
+              "down",
+              "left",
+              "right"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "screenshot": {
+            "default": false,
+            "description": "Also return a fresh screenshot after the action.",
+            "title": "Screenshot",
+            "type": "boolean"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Point to scroll over (omit = current pointer).",
+            "title": "X"
+          },
+          "y": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Point to scroll over (omit = current pointer).",
+            "title": "Y"
+          }
+        },
+        "required": [
+          "direction"
+        ],
+        "title": "reach_scrollArguments",
+        "type": "object"
+      },
+      "name": "reach_scroll",
+      "title": "Scroll"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Type text"
+      },
+      "description": "Type text into whatever has keyboard focus (click the field first).",
+      "inputSchema": {
+        "properties": {
+          "screenshot": {
+            "default": false,
+            "description": "Also return a fresh screenshot after the action.",
+            "title": "Screenshot",
+            "type": "boolean"
+          },
+          "text": {
+            "description": "Text to type into the focused control. Any Unicode; \\n presses Enter.",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "reach_type_textArguments",
+        "type": "object"
+      },
+      "name": "reach_type_text",
+      "title": "Type text"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Press keys"
+      },
+      "description": "Press a key or a key combination (modifiers are released afterwards).",
+      "inputSchema": {
+        "properties": {
+          "keys": {
+            "description": "Key or chord, e.g. 'enter', 'ctrl+s', 'alt+f4', 'win+r', 'shift+tab', 'f5'.",
+            "title": "Keys",
+            "type": "string"
+          },
+          "repeat": {
+            "default": 1,
+            "maximum": 50,
+            "minimum": 1,
+            "title": "Repeat",
+            "type": "integer"
+          },
+          "screenshot": {
+            "default": false,
+            "description": "Also return a fresh screenshot after the action.",
+            "title": "Screenshot",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "keys"
+        ],
+        "title": "reach_press_keysArguments",
+        "type": "object"
+      },
+      "name": "reach_press_keys",
+      "title": "Press keys"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Write clipboard"
+      },
+      "description": "Replace the clipboard text (paste it with reach_press_keys 'ctrl+v').",
+      "inputSchema": {
+        "properties": {
+          "text": {
+            "description": "Text to place on the clipboard.",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "reach_set_clipboardArguments",
+        "type": "object"
+      },
+      "name": "reach_set_clipboard",
+      "outputSchema": {
+        "properties": {
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "title": "reach_set_clipboardOutput",
+        "type": "object"
+      },
+      "title": "Write clipboard"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Launch application"
+      },
+      "description": "Open a program, document or URL the same way Run/double-click would (as the current user).",
+      "inputSchema": {
+        "properties": {
+          "arguments": {
+            "default": "",
+            "description": "Command-line arguments for a program.",
+            "title": "Arguments",
+            "type": "string"
+          },
+          "screenshot": {
+            "default": false,
+            "description": "Also return a fresh screenshot after the action.",
+            "title": "Screenshot",
+            "type": "boolean"
+          },
+          "target": {
+            "description": "Program name/path, document path or URL, e.g. 'notepad.exe'.",
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "title": "reach_launch_applicationArguments",
+        "type": "object"
+      },
+      "name": "reach_launch_application",
+      "title": "Launch application"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "Wait"
+      },
+      "description": "Pause (e.g. for a page or app to load), optionally then take a screenshot.",
+      "inputSchema": {
+        "properties": {
+          "screenshot": {
+            "default": false,
+            "description": "Also return a fresh screenshot after the action.",
+            "title": "Screenshot",
+            "type": "boolean"
+          },
+          "seconds": {
+            "default": 1.0,
+            "maximum": 60,
+            "minimum": 0,
+            "title": "Seconds",
+            "type": "number"
+          }
+        },
+        "title": "reach_waitArguments",
+        "type": "object"
+      },
+      "name": "reach_wait",
+      "title": "Wait"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "Capabilities and workspace"
+      },
+      "description": "Discover enabled capabilities, file roots, command limits and safety behavior.",
+      "inputSchema": {
+        "properties": {},
+        "title": "reach_get_capabilitiesArguments",
+        "type": "object"
+      },
+      "name": "reach_get_capabilities",
+      "title": "Capabilities and workspace"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "List directory"
+      },
+      "description": "List bounded entries inside configured local roots; no symlinks or network shares.",
+      "inputSchema": {
+        "properties": {
+          "limit": {
+            "default": 200,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "path": {
+            "default": ".",
+            "maxLength": 4096,
+            "title": "Path",
+            "type": "string"
+          },
+          "recursive": {
+            "default": false,
+            "title": "Recursive",
+            "type": "boolean"
+          }
+        },
+        "title": "reach_list_directoryArguments",
+        "type": "object"
+      },
+      "name": "reach_list_directory",
+      "title": "List directory"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "Read text file"
+      },
+      "description": "Read text and full-file SHA256. Use the hash for subsequent edits.",
+      "inputSchema": {
+        "properties": {
+          "end_line": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End Line"
+          },
+          "path": {
+            "maxLength": 4096,
+            "title": "Path",
+            "type": "string"
+          },
+          "start_line": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Start Line",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "reach_read_fileArguments",
+        "type": "object"
+      },
+      "name": "reach_read_file",
+      "title": "Read text file"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "Search files and text"
+      },
+      "description": "Bounded literal text search, or filename search. Use glob to filter files.",
+      "inputSchema": {
+        "properties": {
+          "case_sensitive": {
+            "default": false,
+            "title": "Case Sensitive",
+            "type": "boolean"
+          },
+          "filenames": {
+            "default": false,
+            "title": "Filenames",
+            "type": "boolean"
+          },
+          "glob": {
+            "default": "*",
+            "title": "Glob",
+            "type": "string"
+          },
+          "limit": {
+            "default": 100,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "path": {
+            "default": ".",
+            "maxLength": 4096,
+            "title": "Path",
+            "type": "string"
+          },
+          "query": {
+            "maxLength": 1000,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "reach_search_filesArguments",
+        "type": "object"
+      },
+      "name": "reach_search_files",
+      "title": "Search files and text"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Write text file"
+      },
+      "description": "Create a file with create=true, or replace existing text using its current SHA256.",
+      "inputSchema": {
+        "properties": {
+          "content": {
+            "maxLength": 60000,
+            "title": "Content",
+            "type": "string"
+          },
+          "create": {
+            "default": false,
+            "title": "Create",
+            "type": "boolean"
+          },
+          "expected_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expected Sha256"
+          },
+          "path": {
+            "maxLength": 4096,
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ],
+        "title": "reach_write_fileArguments",
+        "type": "object"
+      },
+      "name": "reach_write_file",
+      "title": "Write text file"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Replace exact text"
+      },
+      "description": "Replace exact text only when hash and occurrence count match; preserve encoding/newlines.",
+      "inputSchema": {
+        "properties": {
+          "expected_sha256": {
+            "pattern": "^[0-9a-fA-F]{64}$",
+            "title": "Expected Sha256",
+            "type": "string"
+          },
+          "new": {
+            "maxLength": 60000,
+            "title": "New",
+            "type": "string"
+          },
+          "occurrences": {
+            "default": 1,
+            "maximum": 10000,
+            "minimum": 1,
+            "title": "Occurrences",
+            "type": "integer"
+          },
+          "old": {
+            "maxLength": 60000,
+            "title": "Old",
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 4096,
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "old",
+          "new",
+          "expected_sha256"
+        ],
+        "title": "reach_replace_textArguments",
+        "type": "object"
+      },
+      "name": "reach_replace_text",
+      "title": "Replace exact text"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Apply unified patch"
+      },
+      "description": "Apply standard unified diff with exact context. Supply current hashes; null for creation.",
+      "inputSchema": {
+        "properties": {
+          "expected_sha256": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Expected Sha256",
+            "type": "object"
+          },
+          "patch": {
+            "maxLength": 60000,
+            "title": "Patch",
+            "type": "string"
+          }
+        },
+        "required": [
+          "patch",
+          "expected_sha256"
+        ],
+        "title": "reach_apply_patchArguments",
+        "type": "object"
+      },
+      "name": "reach_apply_patch",
+      "title": "Apply unified patch"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Create directory"
+      },
+      "description": "Create a local directory inside a configured file root.",
+      "inputSchema": {
+        "properties": {
+          "path": {
+            "maxLength": 4096,
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "reach_make_directoryArguments",
+        "type": "object"
+      },
+      "name": "reach_make_directory",
+      "title": "Create directory"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Move file or empty directory"
+      },
+      "description": "Move without overwriting. Supply current hash for files; directories must be empty.",
+      "inputSchema": {
+        "properties": {
+          "destination": {
+            "maxLength": 4096,
+            "title": "Destination",
+            "type": "string"
+          },
+          "expected_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expected Sha256"
+          },
+          "source": {
+            "maxLength": 4096,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "destination"
+        ],
+        "title": "reach_move_fileArguments",
+        "type": "object"
+      },
+      "name": "reach_move_file",
+      "title": "Move file or empty directory"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Remove file or empty directory"
+      },
+      "description": "Delete one file using its current hash, or one empty directory. No recursive delete.",
+      "inputSchema": {
+        "properties": {
+          "expected_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expected Sha256"
+          },
+          "path": {
+            "maxLength": 4096,
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "reach_remove_fileArguments",
+        "type": "object"
+      },
+      "name": "reach_remove_file",
+      "title": "Remove file or empty directory"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": "Run terminal command"
+      },
+      "description": "Run as the normal VM user; returns job id, bounded stdout/stderr and exit status.\n            Use shell=program with an argv array for exact executable arguments. Poll long jobs.\n            Commands may access files/network beyond file-tool roots; this is not a sandbox.",
+      "inputSchema": {
+        "properties": {
+          "command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "PowerShell/cmd script, or argv array for shell=program.",
+            "title": "Command"
+          },
+          "cwd": {
+            "default": ".",
+            "maxLength": 4096,
+            "title": "Cwd",
+            "type": "string"
+          },
+          "shell": {
+            "default": "powershell",
+            "enum": [
+              "powershell",
+              "cmd",
+              "program"
+            ],
+            "title": "Shell",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "default": 300,
+            "maximum": 86400,
+            "minimum": 1,
+            "title": "Timeout Seconds",
+            "type": "number"
+          },
+          "wait_seconds": {
+            "default": 1,
+            "maximum": 10,
+            "minimum": 0,
+            "title": "Wait Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "title": "reach_run_commandArguments",
+        "type": "object"
+      },
+      "name": "reach_run_command",
+      "title": "Run terminal command"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "Read terminal output"
+      },
+      "description": "Read output/status since cursor; keep next_cursor. Truncated output cannot be recovered.",
+      "inputSchema": {
+        "properties": {
+          "cursor": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Cursor",
+            "type": "integer"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "max_chars": {
+            "default": 20000,
+            "maximum": 60000,
+            "minimum": 1,
+            "title": "Max Chars",
+            "type": "integer"
+          },
+          "wait_seconds": {
+            "default": 0,
+            "maximum": 10,
+            "minimum": 0,
+            "title": "Wait Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "reach_read_processArguments",
+        "type": "object"
+      },
+      "name": "reach_read_process",
+      "title": "Read terminal output"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false,
+        "title": "Send terminal input"
+      },
+      "description": "Send UTF-8 text to stdin (include newline when needed); optionally close stdin.",
+      "inputSchema": {
+        "properties": {
+          "close": {
+            "default": false,
+            "title": "Close",
+            "type": "boolean"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "text": {
+            "default": "",
+            "maxLength": 60000,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "reach_write_processArguments",
+        "type": "object"
+      },
+      "name": "reach_write_process",
+      "title": "Send terminal input"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": "Cancel terminal job"
+      },
+      "description": "Stop the managed process tree. Prior side effects remain; inspect before retrying.",
+      "inputSchema": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "reach_cancel_processArguments",
+        "type": "object"
+      },
+      "name": "reach_cancel_process",
+      "title": "Cancel terminal job"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": "List terminal jobs"
+      },
+      "description": "List this Reach process manager's jobs and status; does not enumerate unrelated processes.",
+      "inputSchema": {
+        "properties": {},
+        "title": "reach_list_processesArguments",
+        "type": "object"
+      },
+      "name": "reach_list_processes",
+      "title": "List terminal jobs"
+    }
+  ],
+  "ttlMs": 0
+}

@@ -1,0 +1,23 @@
+name: Public source privacy
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  public-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Test publication guard
+        run: python -m unittest discover -s tests -p test_public_source.py -v
+      - name: Audit sources and reachable history
+        run: python scripts/check-public-source.py --history

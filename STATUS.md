@@ -2,6 +2,30 @@
 
 This is a Windows desktop and developer-tool MCP implementation.
 
+## Central gateway source and macOS development
+
+The `gateway/` reference source adds the central MCP gateway, authenticated worker
+channel, persistent desktop authorization, workflow reservations, owner browser
+approvals, phone push notifications, administrator jobs, and session permission
+and revocation controls. See [architecture](docs/architecture.md) and the
+[gateway source guide](gateway/README.md) for the separate security boundaries.
+
+The public export contains synthetic deployment identities and examples. It
+excludes live configuration, keys, certificates, permission records, subscriptions,
+logs, private test evidence, and machine-bound deployment manifests. It requires
+reviewed local enrollment and host integration before deployment. It is not an
+automatic upgrade of the standalone Windows package.
+
+The existing Windows native package remains 0.3.0. A native macOS companion is
+planned in [the port design](docs/macos-port.md); no Mac implementation, installer,
+or real-Mac acceptance is claimed.
+
+Publication validation: 341 gateway application tests, 50 host Python fixtures,
+237 native Windows tests, and eight publication-guard tests pass locally. CI
+also checks the gateway on Linux, host PHP syntax, and public-source privacy.
+These fixture checks do not establish a configured host deployment or a Mac
+companion. Private deployment evidence is not included in this repository.
+
 ## Implemented
 
 - Thirty tools: fifteen desktop tools plus capabilities, direct files/search/patches, and managed terminal jobs.

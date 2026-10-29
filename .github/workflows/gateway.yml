@@ -1,0 +1,27 @@
+name: Gateway reference tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install isolated gateway dependencies
+        run: |
+          python -m venv .gateway-venv
+          .gateway-venv/bin/python -m pip install -r gateway/requirements.lock
+      - name: Application approval and transport fixtures
+        run: .gateway-venv/bin/python gateway/run_tests.py
+      - name: Host permission and workflow fixtures
+        run: .gateway-venv/bin/python -m unittest discover -s gateway/host/tests -p 'test_*.py'
+      - name: Check host PHP syntax
+        run: find gateway/host -type f -name '*.php' -print0 | xargs -0 -n1 php -l

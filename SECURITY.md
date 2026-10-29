@@ -1,5 +1,11 @@
 # Security model
 
+The standalone Windows package and the [central gateway reference](gateway/README.md)
+have separate approval boundaries. The standalone policies below govern ordinary
+desktop access. The gateway's privileged broker additionally requires an exact
+owner decision or a current, scoped session grant. Generic client tool permission
+does not authorize that privileged route. See [architecture](docs/architecture.md).
+
 This project exposes the privileges of a Windows desktop user. A model that can send keyboard and mouse input can open a terminal, modify files, access signed-in applications, and send data. Tool approvals reduce accidental or unintended use; they do not contain a malicious client.
 
 ## Boundaries
@@ -40,6 +46,12 @@ for publication commits if a personal email must stay private. A .gitignore
 file does not remove anything already committed. Compare release contents against
 local deployment values without printing those values. Never publish private
 diagnostic traces or machine-specific configuration.
+
+Run `python scripts/check-public-source.py --history` before pushing. The guard
+checks the working tree, reachable source history, and commit email metadata
+without printing matched credential values. CI repeats the check. It detects
+known sensitive patterns and runtime artifacts; manually review the staged diff
+and any release contents as well.
 
 ## Stop access
 
